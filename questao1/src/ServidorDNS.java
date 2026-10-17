@@ -3,15 +3,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ServidorDNS {
     final int PORTA_DNS = 5353;
     static Map<String, String> tabelaDNS;
+    static List<Socket> clientesConectados;
 
     public ServidorDNS() {
         tabelaDNS = new ConcurrentHashMap<String, String>();
+        clientesConectados = new CopyOnWriteArrayList<Socket>();
 
         for (int i = 0; i < 10; i++) {
             String nome = "servidor" + (i + 1);
@@ -34,7 +38,10 @@ public class ServidorDNS {
             while (true){
                 Socket cliente = servidorDNS.accept();
                 System.out.println("Cliente conectado: " + cliente.getInetAddress());
-                
+
+                // adiciona o socket do cliente à lista de clientes conectados
+                clientesConectados.add(cliente);
+
                 // uma thread para cada cliente
                 new Thread( new Runnable(){
                     @Override
@@ -77,31 +84,51 @@ public class ServidorDNS {
                                         }
                                         saida.write(resposta.getBytes("UTF-8"));
                                     }
-                                    // apenas cliente registrador; checar aqui também?
+
                                     else if (msgRecebida.startsWith("SET|")){
                                         String[] partes = msgRecebida.split("\\|");
                                         if (partes.length == 3){
                                             String nomeServidorSet = partes[1].trim();
                                             String novoEnderecoIP = partes[2].trim();
+
+                                            String ipAntigo = tabelaDNS.get(nomeServidorSet);
+
+                                            if (ipAntigo == null) {
+                                                resposta = "Servidor " + nomeServidorSet + " não encontrado.";
+                                                saida.write(resposta.getBytes("UTF-8"));
+                                                continue;
+                                            }
+
                                             tabelaDNS.put(nomeServidorSet, novoEnderecoIP);
                                             resposta = "Endereço IP de " + nomeServidorSet + " atualizado para: " + novoEnderecoIP;
+                                            saida.write(resposta.getBytes("UTF-8"));
+
+                                            //método para notificar clientes conectados sobre atualização de IP
+                                            notificarClientes(nomeServidorSet, ipAntigo, novoEnderecoIP);
+
                                         } else {
-                                            resposta = "Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
+                                            saida.write("Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP".getBytes("UTF-8"));
                                         }
-                                        saida.write(resposta.getBytes("UTF-8"));
                                     }
 
                                     else if (msgRecebida.startsWith("QUIT")){
                                         System.out.println("O cliente " + cliente.getInetAddress() + " desconectou.");
                                         cliente.close();
                                         break;
-                                    }
+                                    }    
+                                } 
+                            }
                         }
-                    }
-                    
-                } catch (IOException e) {
-                    System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
-                }
+                            catch (IOException e) {
+                        System.err.println("Erro na comunicação com o cliente: " + e.getMessage());}
+                        finally{
+                            clientesConectados.remove(cliente);
+                            try {
+                                cliente.close();
+                            } catch (IOException e) {
+                                System.err.println("Erro ao fechar o socket do cliente: " + e.getMessage());    
+                            }
+                        }
                     }
                 }).start();
             }
@@ -114,6 +141,19 @@ public class ServidorDNS {
                 } catch (IOException e) {
                     System.err.println("Erro ao fechar o servidor: " + e.getMessage());
                 }
+            }
+        }
+    }
+
+    private void notificarClientes(String nomeServidor, String ipAntigo, String novoEnderecoIP){
+        String notificacao = "NOTIFY|ALTERACAO DE IP|" + nomeServidor + "|" + ipAntigo + "->" + novoEnderecoIP;
+        // Enviar notificação para todos os clientes conectados
+        for (Socket cliente : clientesConectados){
+            try {
+                OutputStream saida = cliente.getOutputStream();
+                saida.write(notificacao.getBytes("UTF-8"));
+            } catch (IOException e) {
+                System.err.println("Erro ao notificar cliente: " + e.getMessage());
             }
         }
     }

@@ -27,10 +27,44 @@ public class Cliente {
             OutputStream saida = socket.getOutputStream();
             InputStream entrada = socket.getInputStream();
 
+            // thread para ouvir mensagens do servidor
+            new Thread (new Runnable(){
+                @Override
+                public void run(){
+                    try {
+                        while (true){
+                            byte[] buffer = new byte[512];
+                            int bytesLidos = entrada.read(buffer);
+                            if (bytesLidos > 0){
+                                String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
+
+                                if (resposta.startsWith("NOTIFY|")){
+                                    System.out.println("\n[NOTIFICAÇÃO]: " + resposta.substring(7) + "\n");
+                                }
+                                else{
+                                    System.out.println("Resposta do servidor:\n" + resposta);
+                                }
+                                
+                            }
+
+                            else if (bytesLidos == -1){
+                                System.out.println("Servidor fechou a conexão.");
+                                break;
+                            }
+                        }
+                    } catch (IOException e) {
+                        System.err.println("Erro ao escutar servidor: " + e.getMessage());
+                    }
+                }
+            }).start();
+
             @SuppressWarnings("resource")
             Scanner teclado = new Scanner(System.in);
 
+            // loop para enviar mensagens ao servidor
             while (true){
+
+                
                 menu();
 
                 if (!teclado.hasNextLine()){
@@ -74,18 +108,6 @@ public class Cliente {
                 }
                 
                 if (operacao == null) continue;
-            
-                byte[] buffer = new byte[512];
-                int bytesLidos = entrada.read(buffer);
-                if (bytesLidos > 0){
-                    String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
-                    System.out.println("Resposta do servidor:\n" + resposta);
-                }
-
-                else if (bytesLidos == -1){
-                    System.out.println("Servidor fechou a conexão.");
-                    break;
-                }
             }
 
         } catch (IOException e) {
