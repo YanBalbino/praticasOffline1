@@ -64,12 +64,11 @@ public class ServidorDNS {
 
                                     String msgRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
                                     
-                                    // decriptografia aqui
-                                    // checagem de HMAC?
+                                    // [CRIPTO] decriptografia aqui
                                     
                                     System.out.println("Mensagem recebida: " + msgRecebida);
 
-                                    String resposta;
+                                    String resposta = "";
 
                                     // opções de operações solicitadas pelo cliente
                                     if (msgRecebida.startsWith("LIST")){
@@ -78,24 +77,19 @@ public class ServidorDNS {
                                         for (Map.Entry<String, String> entry : tabelaDNS.entrySet()){
                                             resposta += entry.getKey() + " -> " + entry.getValue() + "\n";
                                         }
+                                        resposta += "\n";
 
-                                        // criptografia aqui
-                                        saida.write(resposta.getBytes("UTF-8"));
-
+                                        //TODO jogar esse print pra depois do write
                                         System.out.println("Listagem enviada ao cliente.");
                                     }
                                     else if (msgRecebida.startsWith("GET|")){
                                         String nomeServidor = msgRecebida.substring(4).trim();
                                         String enderecoIP = tabelaDNS.get(nomeServidor);
-                                        if (enderecoIP != null){
-                                            resposta = "Endereço IP de " + nomeServidor + ": " + enderecoIP;
-                                        } else {
-                                            resposta = nomeServidor + " não encontrado.";
-                                        }
 
-                                        // criptografia aqui
-                                        saida.write(resposta.getBytes("UTF-8"));
+                                        if (enderecoIP != null) resposta = "Endereço IP de " + nomeServidor + ": " + enderecoIP;
+                                        else resposta = nomeServidor + " não encontrado.";
 
+                                        //TODO jogar esse print pra depois do write
                                         System.out.println("Endereço de servidor enviado ao cliente.");
                                     }
 
@@ -108,34 +102,47 @@ public class ServidorDNS {
                                             String ipAntigo = tabelaDNS.get(nomeServidorSet);
 
                                             if (ipAntigo == null) {
-                                                resposta = "Servidor " + nomeServidorSet + " não encontrado.";
+                                                //caso onde a resposta precisa ser enviada antes do loop reiniciar
+                                                resposta = "Servidor " + nomeServidorSet + " não encontrado."; 
+                                                
+                                                // [CRIPTO] criptografia aqui
 
-                                                // criptografia aqui
                                                 saida.write(resposta.getBytes("UTF-8"));
                                                 continue;
                                             }
 
                                             tabelaDNS.put(nomeServidorSet, novoEnderecoIP);
                                             resposta = "Endereço IP de " + nomeServidorSet + " atualizado para: " + novoEnderecoIP;
-                                            
-                                            // criptografia aqui
-                                            saida.write(resposta.getBytes("UTF-8"));
+                                            resposta += "\n";
 
+                                            //TODO criar um print dessa operação pra depois do write
+
+                                            //TODO jogar essa notificação pra depois do write
                                             //método para notificar clientes conectados sobre atualização de IP
                                             notificarClientes(nomeServidorSet, ipAntigo, novoEnderecoIP);
 
                                         } else {
-
-                                            // criptografia aqui
-                                            saida.write("Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP".getBytes("UTF-8"));
+                                            resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
                                         }
                                     }
 
                                     else if (msgRecebida.startsWith("QUIT")){
-                                        System.out.println("O cliente " + cliente.getInetAddress() + " desconectou.");
+                                        // caso onde a resposta precisa  ser enviada antes do cliente sair
+                                        resposta = "NOTIFY|Desconectando do servidor...\n";
+
+                                        // [CRIPTO] criptografia aqui
+
+                                        saida.write(resposta.getBytes("UTF-8"));
                                         cliente.close();
+
+                                        System.out.println("O cliente " + cliente.getInetAddress() + " desconectou.");
                                         break;
                                     }    
+
+                                    // [CRIPTO] criptografia aqui
+                                    
+                                    //TODO criar um seletor de prints pós write
+                                    saida.write(resposta.getBytes("UTF-8"));
                                 } 
                             }
                         }
@@ -172,7 +179,8 @@ public class ServidorDNS {
             try {
                 OutputStream saida = cliente.getOutputStream();
 
-                // criptografia aqui
+                // [CRIPTO] criptografia aqui
+
                 saida.write(notificacao.getBytes("UTF-8"));
             } catch (IOException e) {
                 System.err.println("Erro ao notificar cliente: " + e.getMessage());

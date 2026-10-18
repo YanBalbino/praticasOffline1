@@ -38,7 +38,7 @@ public class Cliente {
                             if (bytesLidos > 0){
                                 String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
 
-                                // descriptografia aqui
+                                // [CRIPTO] decriptografia aqui
 
                                 if (resposta.startsWith("NOTIFY|")){
                                     System.out.println("\n[NOTIFICAÇÃO]: " + resposta.substring(7) + "\n");
@@ -71,25 +71,23 @@ public class Cliente {
                     return;
                 }
                 String operacao = teclado.nextLine();
+                String resposta = "";
 
                 switch(operacao){
                     case "0":
-
-                        // criptografia aqui
-                        saida.write("LIST".getBytes("UTF-8"));
+                        resposta = "LIST";
                         break;
                     case "1":
                         System.out.println("Qual o servidor?");
                         String nomeServidor = teclado.nextLine();
 
-                        // criptografia aqui
-                        saida.write(("GET|" + nomeServidor).getBytes("UTF-8"));
+                        resposta = "GET|" + nomeServidor;
                         break;
                     
                     // exige cliente registrador;
                     case "2":
                         if (!isRegistrador){
-                            System.out.println("Operação inválida. Apenas clientes registradores podem definir endereços IP.\n");
+                            System.out.println("[ERROR] Apenas registradores podem definir endereços IP.\n");
                             operacao = null;
                             break;
                         }
@@ -98,24 +96,29 @@ public class Cliente {
                         System.out.println("Qual o novo endereço IP?");
                         String enderecoIP = teclado.nextLine();
 
-                        // criptografia aqui
-                        saida.write(("SET|" + nomeServidorSet + "|" + enderecoIP).getBytes("UTF-8"));
+                        resposta = "SET|" + nomeServidorSet + "|" + enderecoIP;
                         break;
                     case "3":
+                        // caso onde a resposta precisa ser enviada antes do cliente sair
+                        resposta = "QUIT";
 
-                        // criptografia aqui
-                        saida.write("QUIT".getBytes("UTF-8"));
-                        System.out.println("Desconectando do servidor...");
+                        // [CRIPTO] criptografia aqui
+
+                        saida.write(resposta.getBytes("UTF-8"));
                         socket.close();
                         return;
 
                     default:
-                        System.out.println("Operação inválida. Tente novamente.");
+                        System.out.println("[ERROR] Operação inválida. Tente novamente.");
                         operacao = null;
                         break;
                 }
                 
                 if (operacao == null) continue;
+
+                // [CRIPTO] criptografia aqui
+                
+                saida.write(resposta.getBytes("UTF-8"));
             }
 
         } catch (IOException e) {
@@ -143,7 +146,7 @@ public class Cliente {
     }
 
     public static void main(String[] args){
-        //new Cliente("localhost", 5353, true);
-        new Cliente("localhost", 5353, false);
+        new Cliente("localhost", 5353, true);
+        //new Cliente("localhost", 5353, false);
     }
 }
