@@ -38,6 +38,8 @@ public class Cliente {
                             if (bytesLidos > 0){
                                 String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
 
+                                // descriptografia aqui
+
                                 if (resposta.startsWith("NOTIFY|")){
                                     System.out.println("\n[NOTIFICAÇÃO]: " + resposta.substring(7) + "\n");
                                 }
@@ -63,8 +65,6 @@ public class Cliente {
 
             // loop para enviar mensagens ao servidor
             while (true){
-
-                
                 menu();
 
                 if (!teclado.hasNextLine()){
@@ -74,15 +74,19 @@ public class Cliente {
 
                 switch(operacao){
                     case "0":
+
+                        // criptografia aqui
                         saida.write("LIST".getBytes("UTF-8"));
                         break;
                     case "1":
                         System.out.println("Qual o servidor?");
                         String nomeServidor = teclado.nextLine();
+
+                        // criptografia aqui
                         saida.write(("GET|" + nomeServidor).getBytes("UTF-8"));
                         break;
                     
-                    // envolve cliente registrador;
+                    // exige cliente registrador;
                     case "2":
                         if (!isRegistrador){
                             System.out.println("Operação inválida. Apenas clientes registradores podem definir endereços IP.\n");
@@ -93,9 +97,13 @@ public class Cliente {
                         String nomeServidorSet = teclado.nextLine();
                         System.out.println("Qual o novo endereço IP?");
                         String enderecoIP = teclado.nextLine();
+
+                        // criptografia aqui
                         saida.write(("SET|" + nomeServidorSet + "|" + enderecoIP).getBytes("UTF-8"));
                         break;
                     case "3":
+
+                        // criptografia aqui
                         saida.write("QUIT".getBytes("UTF-8"));
                         System.out.println("Desconectando do servidor...");
                         socket.close();
