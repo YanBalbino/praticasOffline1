@@ -42,12 +42,45 @@ public class InfoServidor {
     }
 
     public boolean ofereceServico(String operacao) {
+        String opNormalizada = normalizarOperacao(operacao);
         for (String s : servicos) {
-            if (s.equalsIgnoreCase(operacao.trim())) {
+            if (s.equalsIgnoreCase(opNormalizada) || s.equalsIgnoreCase(operacao.trim())) {
                 return true;
             }
         }
         return false;
+    }
+
+    public static String normalizarOperacao(String entrada) {
+        if (entrada == null) {
+            return "";
+        }
+        String limpa = entrada.trim().toUpperCase()
+                .replace("Á", "A").replace("Ã", "A").replace("Ç", "C").replace("Õ", "O");
+
+        if (limpa.equals("SOMA") || limpa.equals("CALCULAR SOMA") || limpa.equals("+")) {
+            return "SOMA";
+        }
+        if (limpa.equals("SUBTRACAO") || limpa.equals("CALCULAR SUBTRACAO") || limpa.equals("-")) {
+            return "SUBTRACAO";
+        }
+        if (limpa.equals("MULTIPLICACAO") || limpa.equals("CALCULAR MULTIPLICACAO") || limpa.equals("*")) {
+            return "MULTIPLICACAO";
+        }
+        if (limpa.equals("DIVISAO") || limpa.equals("CALCULAR DIVISAO") || limpa.equals("/")) {
+            return "DIVISAO";
+        }
+        return limpa;
+    }
+
+    public static boolean isOperacaoValida(String entrada) {
+        String op = normalizarOperacao(entrada);
+        return op.equals("SOMA") || op.equals("SUBTRACAO")
+                || op.equals("MULTIPLICACAO") || op.equals("DIVISAO");
+    }
+
+    public String getResumoEndereco() {
+        return nome + "(" + endereco + ":" + porta + ")";
     }
 
     @Override

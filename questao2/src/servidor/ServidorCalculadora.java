@@ -1,12 +1,22 @@
 package servidor;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+
+import javax.crypto.SecretKey;
 
 import diretorio.ServidorDiretorio;
+import log.Color;
+import model.InfoServidor;
+import seguranca.CriptoUtils;
+import seguranca.EnvelopeCriptografico;
 
 public class ServidorCalculadora {
     private String nome;
@@ -15,111 +25,175 @@ public class ServidorCalculadora {
     private String hostDiretorio;
     private int portaDiretorio;
 
+    private final KeyPair parChavesRSA;
+    private final SecretKey chaveAES;
+    private final SecretKey chaveHMAC;
+
+    private ServerSocket serverSocket;
+    private volatile boolean executando = true;
+    private volatile boolean simularHmacCorrompido = false;
+
     public ServidorCalculadora(String nome, String endereco, int porta, String hostDiretorio, int portaDiretorio) {
         this.nome = nome;
         this.endereco = endereco;
         this.porta = porta;
         this.hostDiretorio = hostDiretorio;
         this.portaDiretorio = portaDiretorio;
+
+        this.parChavesRSA = CriptoUtils.gerarParChavesRSA();
+        this.chaveAES = CriptoUtils.gerarChaveAES();
+        this.chaveHMAC = CriptoUtils.gerarChaveHMAC();
+
         iniciar();
     }
 
     public void iniciar() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ServerSocket serverSocket = null;
-                try {
-                    serverSocket = new ServerSocket(porta);
-                    System.out.println("[" + nome + "] Rodando em " + endereco + " (porta real: " + porta + ")...");
+        new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(porta);
+                Color.info("[" + nome + "] Rodando em " + endereco + " (porta real: " + porta + ") com RSA+AES+HMAC...");
 
-                    // Registra-se no Servidor de Diretório
-                    registrarNoDiretorio();
+                // Registra-se no Servidor de Diretório usando pacote cifrado (RSA+AES+HMAC)
+                registrarNoDiretorio();
 
-                    while (true) {
-                        Socket cliente = serverSocket.accept();
-                        atenderCliente(cliente);
-                    }
-                } catch (IOException e) {
-                    System.err.println("[" + nome + "] Erro no servidor: " + e.getMessage());
-                } finally {
-                    if (serverSocket != null) {
-                        try {
-                            serverSocket.close();
-                        } catch (IOException e) {
-                            System.err.println("[" + nome + "] Erro ao fechar servidor: " + e.getMessage());
-                        }
-                    }
+                while (executando) {
+                    Socket cliente = serverSocket.accept();
+                    atenderCliente(cliente);
                 }
+            } catch (IOException e) {
+                if (executando) {
+                    Color.erro("[" + nome + "] Erro no servidor: " + e.getMessage());
+                }
+            } finally {
+                pararServidor();
             }
-        }).start();
+        }, "Thread-" + nome).start();
     }
 
     private void registrarNoDiretorio() {
-        try (Socket socketDir = new Socket(hostDiretorio, portaDiretorio)) {
-            OutputStream saida = socketDir.getOutputStream();
-            InputStream entrada = socketDir.getInputStream();
-
-            // Serviços oferecidos pela calculadora básica
+        try (
+                Socket socketDir = new Socket(hostDiretorio, portaDiretorio);
+                PrintWriter escritor = new PrintWriter(
+                        new OutputStreamWriter(socketDir.getOutputStream(), StandardCharsets.UTF_8), true);
+                BufferedReader leitor = new BufferedReader(
+                        new InputStreamReader(socketDir.getInputStream(), StandardCharsets.UTF_8))
+        ) {
             String servicos = "SOMA,SUBTRACAO,MULTIPLICACAO,DIVISAO";
             String msgRegistro = "REGISTER|" + nome + "|" + endereco + "|" + porta + "|" + servicos;
 
-            saida.write(msgRegistro.getBytes("UTF-8"));
+            String envelopeRegistro = EnvelopeCriptografico.criarEnvelope(
+                    msgRegistro,
+                    chaveAES,
+                    chaveHMAC,
+                    parChavesRSA,
+                    nome
+            );
+            escritor.println(envelopeRegistro);
 
-            byte[] buffer = new byte[512];
-            int bytesLidos = entrada.read(buffer);
-            if (bytesLidos > 0) {
-                String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
-                System.out.println("[" + nome + "] Resposta do Diretório: " + resposta);
+            String linhaResposta = leitor.readLine();
+            if (linhaResposta != null) {
+                EnvelopeCriptografico respostaEnv = EnvelopeCriptografico.abrirEValidarEnvelope(linhaResposta, nome);
+                Color.sucesso("[" + nome + "] Resposta autenticada do Diretório: " + respostaEnv.getMensagemOriginal());
             }
-        } catch (IOException e) {
-            System.err.println("[" + nome + "] Não foi possível registrar no Diretório: " + e.getMessage());
+        } catch (Exception e) {
+            Color.erro("[" + nome + "] Não foi possível registrar no Diretório: " + e.getMessage());
         }
     }
 
     private void atenderCliente(Socket cliente) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
+            try (
+                    BufferedReader leitor = new BufferedReader(
+                            new InputStreamReader(cliente.getInputStream(), StandardCharsets.UTF_8));
+                    PrintWriter escritor = new PrintWriter(
+                            new OutputStreamWriter(cliente.getOutputStream(), StandardCharsets.UTF_8), true)
+            ) {
+                String linhaRecebida = leitor.readLine();
+                if (linhaRecebida == null) {
+                    return;
+                }
+                linhaRecebida = linhaRecebida.trim();
+
+                if (linhaRecebida.equals("PING")) {
+                    escritor.println("PONG");
+                    return;
+                }
+
+                EnvelopeCriptografico envelopeReq;
                 try {
-                    InputStream entrada = cliente.getInputStream();
-                    OutputStream saida = cliente.getOutputStream();
+                    envelopeReq = EnvelopeCriptografico.abrirEValidarEnvelope(linhaRecebida, nome);
+                } catch (SecurityException se) {
+                    Color.erro("[" + nome + " - ALERTA DE SEGURANÇA] Execução rejeitada! " + se.getMessage());
+                    String envErro = EnvelopeCriptografico.criarEnvelope(
+                            "ERRO_HMAC|Execução rejeitada por " + nome + ": HMAC corrompido ou assinatura inválida!",
+                            chaveAES,
+                            chaveHMAC,
+                            parChavesRSA,
+                            nome
+                    );
+                    escritor.println(envErro);
+                    return;
+                }
 
-                    byte[] buffer = new byte[512];
-                    int bytesLidos = entrada.read(buffer);
+                String msg = envelopeReq.getMensagemOriginal().trim();
 
-                    if (bytesLidos > 0) {
-                        String msg = new String(buffer, 0, bytesLidos, "UTF-8").trim();
+                // CALC|OPERACAO|num1|num2
+                if (msg.startsWith("CALC|")) {
+                    String[] partes = msg.split("\\|");
+                    String respostaPlano;
 
-                        if (msg.equals("PING")) {
-                            saida.write("PONG".getBytes("UTF-8"));
-                            return;
+                    if (partes.length == 4) {
+                        String operacao = InfoServidor.normalizarOperacao(partes[1].trim());
+                        try {
+                            double a = Double.parseDouble(partes[2].trim());
+                            double b = Double.parseDouble(partes[3].trim());
+                            respostaPlano = processarCalculo(operacao, a, b);
+                            Color.sucesso("[" + nome + " - " + endereco + "] Atendeu '" + operacao
+                                    + "' para '" + envelopeReq.getNomeEmissor() + "' -> " + respostaPlano);
+                        } catch (NumberFormatException nfe) {
+                            respostaPlano = "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!";
                         }
-
-                        // Formato esperado: CALC|OPERACAO|num1|num2
-                        if (msg.startsWith("CALC|")) {
-                            String[] partes = msg.split("\\|");
-                            if (partes.length == 4) {
-                                String operacao = partes[1].trim().toUpperCase();
-                                double a = Double.parseDouble(partes[2].trim());
-                                double b = Double.parseDouble(partes[3].trim());
-
-                                String resposta = processarCalculo(operacao, a, b);
-                                saida.write(resposta.getBytes("UTF-8"));
-                                System.out.println("[" + nome + " - " + endereco + "] Atendeu '" + operacao + "' -> " + resposta);
-                            } else {
-                                saida.write("ERRO|Formato inválido. Use: CALC|OPERACAO|num1|num2".getBytes("UTF-8"));
-                            }
-                        }
+                    } else {
+                        respostaPlano = "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!";
                     }
-                } catch (Exception e) {
-                    System.err.println("[" + nome + "] Erro ao atender cliente: " + e.getMessage());
-                } finally {
-                    try {
-                        cliente.close();
-                    } catch (IOException e) {
-                        System.err.println("[" + nome + "] Erro ao fechar conexão com cliente: " + e.getMessage());
+
+                    String envelopeResposta;
+                    if (simularHmacCorrompido) {
+                        Color.alerta("[" + nome + "] Simulando envio de pacote com HMAC adulterado/corrompido...");
+                        envelopeResposta = EnvelopeCriptografico.criarEnvelopeComHmacCorrompido(
+                                respostaPlano,
+                                chaveAES,
+                                chaveHMAC,
+                                parChavesRSA,
+                                nome
+                        );
+                    } else {
+                        envelopeResposta = EnvelopeCriptografico.criarEnvelope(
+                                respostaPlano,
+                                chaveAES,
+                                chaveHMAC,
+                                parChavesRSA,
+                                nome
+                        );
                     }
+                    escritor.println(envelopeResposta);
+                } else {
+                    String envelopeErro = EnvelopeCriptografico.criarEnvelope(
+                            "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!",
+                            chaveAES,
+                            chaveHMAC,
+                            parChavesRSA,
+                            nome
+                    );
+                    escritor.println(envelopeErro);
+                }
+            } catch (Exception e) {
+                Color.erro("[" + nome + "] Erro ao atender cliente: " + e.getMessage());
+            } finally {
+                try {
+                    cliente.close();
+                } catch (IOException e) {
+                    // Ignora erro ao fechar conexão
                 }
             }
         }).start();
@@ -150,15 +224,39 @@ public class ServidorCalculadora {
                 simbolo = "/";
                 break;
             default:
-                return "ERRO|Operação desconhecida: " + operacao;
+                return "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!";
         }
 
         return "RESULTADO [" + nome + " (" + endereco + ")]: " + a + " " + simbolo + " " + b + " = " + resultado;
     }
 
+    public void setSimularHmacCorrompido(boolean simularHmacCorrompido) {
+        this.simularHmacCorrompido = simularHmacCorrompido;
+    }
+
+    public void pararServidor() {
+        executando = false;
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            try {
+                serverSocket.close();
+                Color.alerta("[" + nome + "] Servidor encerrado (inativo).");
+            } catch (IOException e) {
+                // Ignora erro ao fechar
+            }
+        }
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public int getPorta() {
+        return porta;
+    }
+
     public static void main(String[] args) {
-        new ServidorCalculadora("ServidorCalc1", "192.168.0.101", 7001, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
-        new ServidorCalculadora("ServidorCalc2", "192.168.0.102", 7002, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
-        new ServidorCalculadora("ServidorCalc3", "192.168.0.103", 7003, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
+        new ServidorCalculadora("S1", "192.168.0.101", 7001, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
+        new ServidorCalculadora("S2", "192.168.0.102", 7002, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
+        new ServidorCalculadora("S3", "192.168.0.103", 7003, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
     }
 }
