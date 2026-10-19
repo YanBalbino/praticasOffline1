@@ -15,24 +15,31 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.crypto.SecretKey;
 
 import log.Color;
 import model.InfoServidor;
 import seguranca.CriptoUtils;
 import seguranca.EnvelopeCriptografico;
+import seguranca.SessaoSegura;
 
 public class ServidorDiretorio {
+
+    public enum PoliticaBalanceamento {
+        ROUND_ROBIN,
+        RANDOM
+    }
+
     public static final int PORTA_DIRETORIO = 6000;
     private static Map<String, InfoServidor> servidoresRegistrados;
     private static AtomicInteger indiceRodizio;
 
     private final KeyPair parChavesRSA;
-    private final SecretKey chaveAES;
-    private final SecretKey chaveHMAC;
+    private final Random random = new Random();
+    private volatile PoliticaBalanceamento politicaBalanceamento = PoliticaBalanceamento.ROUND_ROBIN;
+    private volatile boolean verificarPingNoDiscover = false;
     private ServerSocket serverSocket;
     private volatile boolean executando = true;
 
@@ -44,8 +51,6 @@ public class ServidorDiretorio {
         servidoresRegistrados = new ConcurrentHashMap<String, InfoServidor>();
         indiceRodizio = new AtomicInteger(0);
         this.parChavesRSA = CriptoUtils.gerarParChavesRSA();
-        this.chaveAES = CriptoUtils.gerarChaveAES();
-        this.chaveHMAC = CriptoUtils.gerarChaveHMAC();
 
         if (modoAssincrono) {
             new Thread(this::rodar, "Thread-ServidorDiretorio").start();
@@ -57,7 +62,9 @@ public class ServidorDiretorio {
     private void rodar() {
         try {
             serverSocket = new ServerSocket(PORTA_DIRETORIO);
-            Color.info("[Diretório] Servidor de Diretório seguro (RSA+AES+HMAC) rodando na porta " + PORTA_DIRETORIO + "...");
+            long pid = ProcessHandle.current().pid();
+            Color.info("[Diretório | PID=" + pid + "] Servidor de Diretório seguro (Handshake RSA + AES + HMAC) rodando na porta "
+                    + PORTA_DIRETORIO + "...");
 
             while (executando) {
                 Socket conexao = serverSocket.accept();
@@ -79,6 +86,23 @@ public class ServidorDiretorio {
                 PrintWriter escritor = new PrintWriter(
                         new OutputStreamWriter(conexao.getOutputStream(), StandardCharsets.UTF_8), true)
         ) {
+            // 1. Handshake RSA para estabelecer chaves de sessão (AES + HMAC) de forma confidencial
+            SessaoSegura sessao;
+            try {
+                sessao = SessaoSegura.realizarHandshakeComoServidor(
+                        leitor,
+                        escritor,
+                        "ServidorDiretorio",
+                        parChavesRSA
+                );
+                if (sessao == null) {
+                    return;
+                }
+            } catch (SecurityException se) {
+                Color.erro("[Diretório - ALERTA DE SEGURANÇA] Falha no Handshake RSA: " + se.getMessage());
+                return;
+            }
+
             String linhaRecebida;
             while ((linhaRecebida = leitor.readLine()) != null) {
                 linhaRecebida = linhaRecebida.trim();
@@ -88,16 +112,14 @@ public class ServidorDiretorio {
 
                 String msgRecebida;
                 try {
-                    EnvelopeCriptografico envelope = EnvelopeCriptografico.abrirEValidarEnvelope(
-                            linhaRecebida,
-                            "ServidorDiretorio"
-                    );
+                    EnvelopeCriptografico envelope = sessao.desempacotarEValidar(linhaRecebida);
                     msgRecebida = envelope.getMensagemOriginal().trim();
-                    Color.info("[Diretório] Mensagem autenticada e decifrada de '"
+                    Color.info("[Diretório] Mensagem autenticada e decifrada na sessão com '"
                             + envelope.getNomeEmissor() + "': " + msgRecebida);
                 } catch (SecurityException se) {
                     Color.erro("[Diretório - ALERTA DE SEGURANÇA] Pacote rejeitado! " + se.getMessage());
-                    enviarEnvelopeSeguro(escritor, "ERRO_HMAC|Execução rejeitada pelo Diretório: Falha de integridade/autenticidade no HMAC!");
+                    enviarEnvelopeDaSessao(escritor, sessao,
+                            "ERRO_HMAC|Execução rejeitada pelo Diretório: Falha de integridade/autenticidade no HMAC!");
                     continue;
                 }
 
@@ -114,10 +136,10 @@ public class ServidorDiretorio {
                         servidoresRegistrados.put(nome, info);
 
                         String resposta = "OK|Servidor " + nome + " (" + ip + ":" + porta + ") registrado com canal seguro!";
-                        enviarEnvelopeSeguro(escritor, resposta);
+                        enviarEnvelopeDaSessao(escritor, sessao, resposta);
                         Color.sucesso("[Diretório] " + resposta);
                     } else {
-                        enviarEnvelopeSeguro(escritor, "ERRO|Formato inválido para REGISTER.");
+                        enviarEnvelopeDaSessao(escritor, sessao, "ERRO|Formato inválido para REGISTER.");
                     }
                 }
 
@@ -129,14 +151,14 @@ public class ServidorDiretorio {
                         List<InfoServidor> ordenados = new ArrayList<InfoServidor>(servidoresRegistrados.values());
                         Collections.sort(ordenados, Comparator.comparing(InfoServidor::getNome));
                         for (InfoServidor info : ordenados) {
-                            boolean online = verificarServidorOnline("localhost", info.getPorta());
+                            boolean online = verificarServidorOnlineSeguro("localhost", info.getPorta());
                             if (!online) {
                                 info.setAtivo(false);
                             }
                             resposta.append(" - ").append(info.toString()).append("\n");
                         }
                     }
-                    enviarEnvelopeSeguro(escritor, resposta.toString().trim());
+                    enviarEnvelopeDaSessao(escritor, sessao, resposta.toString().trim());
                 }
 
                 // DISCOVER|OPERACAO (ex: DISCOVER|Calcular soma ou DISCOVER|SOMA)
@@ -147,7 +169,7 @@ public class ServidorDiretorio {
                     if (!InfoServidor.isOperacaoValida(operacaoSolicitada)) {
                         Color.erro("[Diretório] Consulta com serviço inválido ('" + operacaoSolicitada
                                 + "') -> Erro na entrada de dados. Tente outra vez!");
-                        enviarEnvelopeSeguro(escritor, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
+                        enviarEnvelopeDaSessao(escritor, sessao, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
                         continue;
                     }
 
@@ -155,9 +177,17 @@ public class ServidorDiretorio {
                     List<InfoServidor> ativos = listarServidoresAtivosParaServico(operacaoNormalizada);
 
                     if (!ativos.isEmpty()) {
-                        // Balanceamento de carga Round-Robin entre os servidores ativos
-                        int idx = Math.abs(indiceRodizio.getAndIncrement() % ativos.size());
-                        InfoServidor servidorSelecionado = ativos.get(idx);
+                        InfoServidor servidorSelecionado;
+                        String nomePolitica;
+                        if (politicaBalanceamento == PoliticaBalanceamento.RANDOM) {
+                            int idx = random.nextInt(ativos.size());
+                            servidorSelecionado = ativos.get(idx);
+                            nomePolitica = "Random";
+                        } else {
+                            int idx = Math.abs(indiceRodizio.getAndIncrement() % ativos.size());
+                            servidorSelecionado = ativos.get(idx);
+                            nomePolitica = "Round-Robin";
+                        }
 
                         StringBuilder listaAtivosStr = new StringBuilder();
                         for (int i = 0; i < ativos.size(); i++) {
@@ -173,14 +203,14 @@ public class ServidorDiretorio {
                                 + servidorSelecionado.getPorta() + "|"
                                 + listaAtivosStr.toString();
 
-                        enviarEnvelopeSeguro(escritor, resposta);
+                        enviarEnvelopeDaSessao(escritor, sessao, resposta);
                         Color.sucesso("[Diretório] Serviço '" + operacaoSolicitada + "' -> Ativos: ["
-                                + listaAtivosStr + "] | Balanceador (Round-Robin) selecionou: "
+                                + listaAtivosStr + "] | Balanceador (" + nomePolitica + ") selecionou: "
                                 + servidorSelecionado.getNome() + " (" + servidorSelecionado.getendereco() + ":"
                                 + servidorSelecionado.getPorta() + ")");
                     } else {
                         String resposta = "ERRO|Nenhum servidor ATIVO encontrado para o serviço: " + operacaoSolicitada;
-                        enviarEnvelopeSeguro(escritor, resposta);
+                        enviarEnvelopeDaSessao(escritor, sessao, resposta);
                     }
                 }
 
@@ -192,26 +222,47 @@ public class ServidorDiretorio {
 
                         InfoServidor info = servidoresRegistrados.get(nomeServidor);
                         if (info == null) {
-                            enviarEnvelopeSeguro(escritor, "ERRO|Servidor " + nomeServidor + " não encontrado no diretório.");
+                            enviarEnvelopeDaSessao(escritor, sessao, "ERRO|Servidor " + nomeServidor + " não encontrado no diretório.");
                         } else {
                             boolean ativo = novoStatus.equals("ATIVO");
                             info.setAtivo(ativo);
                             String resposta = "Status de " + nomeServidor + " alterado para: " + (ativo ? "ATIVO" : "INATIVO");
-                            enviarEnvelopeSeguro(escritor, resposta);
+                            enviarEnvelopeDaSessao(escritor, sessao, resposta);
                             Color.info("[Diretório] " + resposta);
                         }
                     } else {
-                        enviarEnvelopeSeguro(escritor, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
+                        enviarEnvelopeDaSessao(escritor, sessao, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
                     }
                 }
 
+                else if (msgRecebida.startsWith("RESET_RODIZIO")) {
+                    resetarIndiceRodizio();
+                    enviarEnvelopeDaSessao(escritor, sessao, "OK|Índice de rodízio Round-Robin reiniciado.");
+                }
+
+                else if (msgRecebida.startsWith("POLICY|")) {
+                    String pol = msgRecebida.substring("POLICY|".length()).trim().toUpperCase();
+                    if (pol.equals("RANDOM")) {
+                        politicaBalanceamento = PoliticaBalanceamento.RANDOM;
+                    } else {
+                        politicaBalanceamento = PoliticaBalanceamento.ROUND_ROBIN;
+                    }
+                    enviarEnvelopeDaSessao(escritor, sessao, "OK|Política de balanceamento alterada para " + politicaBalanceamento);
+                }
+
+                else if (msgRecebida.startsWith("SHUTDOWN")) {
+                    enviarEnvelopeDaSessao(escritor, sessao, "OK|Encerrando ServidorDiretorio.");
+                    fechar();
+                    break;
+                }
+
                 else if (msgRecebida.startsWith("QUIT")) {
-                    Color.info("[Diretório] Cliente desconectou: " + conexao.getInetAddress());
+                    Color.info("[Diretório] Cliente '" + sessao.getNomeRemoto() + "' encerrou a sessão.");
                     break;
                 }
 
                 else {
-                    enviarEnvelopeSeguro(escritor, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
+                    enviarEnvelopeDaSessao(escritor, sessao, "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!");
                 }
             }
         } catch (IOException e) {
@@ -225,14 +276,8 @@ public class ServidorDiretorio {
         }
     }
 
-    private void enviarEnvelopeSeguro(PrintWriter escritor, String mensagemPlano) {
-        String envelope = EnvelopeCriptografico.criarEnvelope(
-                mensagemPlano,
-                chaveAES,
-                chaveHMAC,
-                parChavesRSA,
-                "ServidorDiretorio"
-        );
+    private void enviarEnvelopeDaSessao(PrintWriter escritor, SessaoSegura sessao, String mensagemPlano) {
+        String envelope = sessao.empacotarMensagem(mensagemPlano);
         escritor.println(envelope);
     }
 
@@ -245,7 +290,7 @@ public class ServidorDiretorio {
 
         for (InfoServidor info : todos) {
             if (info.isAtivo() && info.ofereceServico(operacao)) {
-                if (verificarServidorOnline("localhost", info.getPorta())) {
+                if (!verificarPingNoDiscover || verificarServidorOnlineSeguro("localhost", info.getPorta())) {
                     candidatosAtivos.add(info);
                 } else {
                     info.setAtivo(false);
@@ -260,15 +305,36 @@ public class ServidorDiretorio {
         indiceRodizio.set(0);
     }
 
-    private boolean verificarServidorOnline(String host, int porta) {
+    public void setPoliticaBalanceamento(PoliticaBalanceamento politicaBalanceamento) {
+        this.politicaBalanceamento = politicaBalanceamento;
+    }
+
+    public void setVerificarPingNoDiscover(boolean verificarPingNoDiscover) {
+        this.verificarPingNoDiscover = verificarPingNoDiscover;
+    }
+
+    /**
+     * Realiza health-check (PING/PONG) utilizando criptografia híbrida completa (Handshake RSA + Envelope AES+HMAC+RSA).
+     */
+    private boolean verificarServidorOnlineSeguro(String host, int porta) {
         try (Socket s = new Socket(host, porta);
              PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8))) {
             s.setSoTimeout(1500);
-            out.println("PING");
-            String resp = in.readLine();
-            return "PONG".equals(resp);
-        } catch (IOException e) {
+            SessaoSegura sessaoPing = SessaoSegura.realizarHandshakeComoCliente(
+                    in,
+                    out,
+                    "ServidorDiretorio",
+                    parChavesRSA
+            );
+            out.println(sessaoPing.empacotarMensagem("PING"));
+            String respEnvelope = in.readLine();
+            if (respEnvelope == null) {
+                return false;
+            }
+            EnvelopeCriptografico env = sessaoPing.desempacotarEValidar(respEnvelope);
+            return "PONG".equals(env.getMensagemOriginal().trim());
+        } catch (Exception e) {
             return false;
         }
     }
@@ -282,9 +348,5 @@ public class ServidorDiretorio {
                 // Ignora erro no fechamento
             }
         }
-    }
-
-    public static void main(String[] args) {
-        new ServidorDiretorio(false);
     }
 }

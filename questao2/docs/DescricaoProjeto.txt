@@ -1,0 +1,43 @@
+- Os componentes da arquitetura devem ser executados como processos independentes.
+- Todas as mensagens devem usar criptografia híbrida (simétrica + assimétrica).
+
+Descoberta de serviços (service discovery): Criar servidores que oferecem um serviço simples (ex.:
+“Calcular soma”, “Calcular subtração”, “Calcular multiplicação” e “Calcular divisão”).
+● Três servidores possuem o serviço de calculadora básica, com as operações listadas (cada qual
+com seu nome e endereço simulados).
+● Um servidor de diretório registra todos os servidores disponíveis.
+● Considere três clientes:
+○ Um cliente consulta o diretório para descobrir qual servidor está ativo.
+○ Faça testes de descoberta com, pelo menos, dois serviços.
+● Casos de teste:
+○ Caso 1: Descoberta de serviço e cifra híbrida no diretório.
+■ Cliente 1, Servidor de diretório e Servidores de Calc (S1, S2, S3).
+■ Fluxo:
+● S1, S2 e S3 registram seus serviços no Diretório usando pacotes
+cifrados (RSA+AES+HMAC).
+● Cliente 1 estabelece canal seguro com o Diretório e solicita o serviço
+"Calcular soma".
+● Diretório responde com a lista de servidores ativos cifrada.
+■ Resultado: Cliente 1 obtém a lista de endereços autenticada e grava logs do
+canal seguro.
+○ Caso 2: Chamada de serviço com load balancing (round robin / random).
+■ Cliente 1, Cliente 2 e Servidores de Calc (S1, S2).
+■ Fluxo:
+● Cliente 1 e Cliente 2 fazem requisições sequenciais de cálculo (10 + 20,
+5 * 4).
+● A política de balanceamento (ex.: round robin) alterna a conexão para
+S1 na chamada e S2 na .1𝑎 2𝑎
+● Cada chamada abre/usa sessão cifrada (AES+HMAC) individual com o
+servidor selecionado.
+■ Resultado: O cálculo é processado no nó correto com canal seguro; logs
+demonstram a distribuição proporcional de conexões.
+○ Caso 3: Servidor inativo ou falha de integridade.
+■ Cliente 3, Diretório e Servidor de Calc (S3 indisponível/adulterado).
+■ Fluxo:
+● Cliente tenta se conectar a um serviço retornado cujo HMAC falha na
+negociação ou cuja entrada na consulta é inválida (ex.: operação
+"Calcular modulo" não cadastrada).
+■ Resultado:
+● Entrada inválida: Imprime Erro na entrada de dados. Tente outra vez!.
+● HMAC corrompido/Falha de conexão: Rejeita a execução e aciona o
+tratamento de erro sem travar os demais componentes.

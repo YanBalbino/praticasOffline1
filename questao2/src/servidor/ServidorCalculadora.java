@@ -10,30 +10,37 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 
-import javax.crypto.SecretKey;
-
 import diretorio.ServidorDiretorio;
 import log.Color;
 import model.InfoServidor;
 import seguranca.CriptoUtils;
 import seguranca.EnvelopeCriptografico;
+import seguranca.SessaoSegura;
 
 public class ServidorCalculadora {
-    private String nome;
-    private String endereco;
-    private int porta;
-    private String hostDiretorio;
-    private int portaDiretorio;
+    private final String nome;
+    private final String endereco;
+    private final int porta;
+    private final String hostDiretorio;
+    private final int portaDiretorio;
 
     private final KeyPair parChavesRSA;
-    private final SecretKey chaveAES;
-    private final SecretKey chaveHMAC;
 
     private ServerSocket serverSocket;
     private volatile boolean executando = true;
     private volatile boolean simularHmacCorrompido = false;
 
     public ServidorCalculadora(String nome, String endereco, int porta, String hostDiretorio, int portaDiretorio) {
+        this(nome, endereco, porta, hostDiretorio, portaDiretorio, true);
+    }
+
+    public ServidorCalculadora(
+            String nome,
+            String endereco,
+            int porta,
+            String hostDiretorio,
+            int portaDiretorio,
+            boolean modoAssincrono) {
         this.nome = nome;
         this.endereco = endereco;
         this.porta = porta;
@@ -41,33 +48,35 @@ public class ServidorCalculadora {
         this.portaDiretorio = portaDiretorio;
 
         this.parChavesRSA = CriptoUtils.gerarParChavesRSA();
-        this.chaveAES = CriptoUtils.gerarChaveAES();
-        this.chaveHMAC = CriptoUtils.gerarChaveHMAC();
 
-        iniciar();
+        if (modoAssincrono) {
+            new Thread(this::rodar, "Thread-" + nome).start();
+        } else {
+            rodar();
+        }
     }
 
-    public void iniciar() {
-        new Thread(() -> {
-            try {
-                serverSocket = new ServerSocket(porta);
-                Color.info("[" + nome + "] Rodando em " + endereco + " (porta real: " + porta + ") com RSA+AES+HMAC...");
+    private void rodar() {
+        try {
+            serverSocket = new ServerSocket(porta);
+            long pid = ProcessHandle.current().pid();
+            Color.info("[" + nome + " | PID=" + pid + "] Rodando em " + endereco
+                    + " (porta real: " + porta + ") com Handshake RSA + AES + HMAC...");
 
-                // Registra-se no Servidor de Diretório usando pacote cifrado (RSA+AES+HMAC)
-                registrarNoDiretorio();
+            // Registra-se no Servidor de Diretório usando sessão e pacote cifrado (RSA+AES+HMAC)
+            registrarNoDiretorio();
 
-                while (executando) {
-                    Socket cliente = serverSocket.accept();
-                    atenderCliente(cliente);
-                }
-            } catch (IOException e) {
-                if (executando) {
-                    Color.erro("[" + nome + "] Erro no servidor: " + e.getMessage());
-                }
-            } finally {
-                pararServidor();
+            while (executando) {
+                Socket cliente = serverSocket.accept();
+                atenderCliente(cliente);
             }
-        }, "Thread-" + nome).start();
+        } catch (IOException e) {
+            if (executando) {
+                Color.erro("[" + nome + "] Erro no servidor: " + e.getMessage());
+            }
+        } finally {
+            pararServidor();
+        }
     }
 
     private void registrarNoDiretorio() {
@@ -78,23 +87,27 @@ public class ServidorCalculadora {
                 BufferedReader leitor = new BufferedReader(
                         new InputStreamReader(socketDir.getInputStream(), StandardCharsets.UTF_8))
         ) {
+            // 1. Handshake RSA com o Diretório para estabelecer chaves simétricas de sessão (AES + HMAC)
+            SessaoSegura sessaoDir = SessaoSegura.realizarHandshakeComoCliente(
+                    leitor,
+                    escritor,
+                    nome,
+                    parChavesRSA
+            );
+
+            // 2. Envia o comando REGISTER cifrado na sessão
             String servicos = "SOMA,SUBTRACAO,MULTIPLICACAO,DIVISAO";
             String msgRegistro = "REGISTER|" + nome + "|" + endereco + "|" + porta + "|" + servicos;
+            escritor.println(sessaoDir.empacotarMensagem(msgRegistro));
 
-            String envelopeRegistro = EnvelopeCriptografico.criarEnvelope(
-                    msgRegistro,
-                    chaveAES,
-                    chaveHMAC,
-                    parChavesRSA,
-                    nome
-            );
-            escritor.println(envelopeRegistro);
-
+            // 3. Recebe e valida a confirmação do Diretório na mesma sessão
             String linhaResposta = leitor.readLine();
             if (linhaResposta != null) {
-                EnvelopeCriptografico respostaEnv = EnvelopeCriptografico.abrirEValidarEnvelope(linhaResposta, nome);
+                EnvelopeCriptografico respostaEnv = sessaoDir.desempacotarEValidar(linhaResposta);
                 Color.sucesso("[" + nome + "] Resposta autenticada do Diretório: " + respostaEnv.getMensagemOriginal());
             }
+
+            escritor.println(sessaoDir.empacotarMensagem("QUIT"));
         } catch (Exception e) {
             Color.erro("[" + nome + "] Não foi possível registrar no Diretório: " + e.getMessage());
         }
@@ -108,34 +121,63 @@ public class ServidorCalculadora {
                     PrintWriter escritor = new PrintWriter(
                             new OutputStreamWriter(cliente.getOutputStream(), StandardCharsets.UTF_8), true)
             ) {
+                // 1. Handshake RSA atuando como Servidor para estabelecer a sessão individual (AES + HMAC)
+                SessaoSegura sessao;
+                try {
+                    sessao = SessaoSegura.realizarHandshakeComoServidor(
+                            leitor,
+                            escritor,
+                            nome,
+                            parChavesRSA
+                    );
+                    if (sessao == null) {
+                        return;
+                    }
+                } catch (SecurityException se) {
+                    Color.erro("[" + nome + " - ALERTA DE SEGURANÇA] Falha no Handshake RSA: " + se.getMessage());
+                    return;
+                }
+
                 String linhaRecebida = leitor.readLine();
                 if (linhaRecebida == null) {
                     return;
                 }
                 linhaRecebida = linhaRecebida.trim();
 
-                if (linhaRecebida.equals("PING")) {
-                    escritor.println("PONG");
-                    return;
-                }
-
                 EnvelopeCriptografico envelopeReq;
                 try {
-                    envelopeReq = EnvelopeCriptografico.abrirEValidarEnvelope(linhaRecebida, nome);
+                    envelopeReq = sessao.desempacotarEValidar(linhaRecebida);
                 } catch (SecurityException se) {
                     Color.erro("[" + nome + " - ALERTA DE SEGURANÇA] Execução rejeitada! " + se.getMessage());
-                    String envErro = EnvelopeCriptografico.criarEnvelope(
-                            "ERRO_HMAC|Execução rejeitada por " + nome + ": HMAC corrompido ou assinatura inválida!",
-                            chaveAES,
-                            chaveHMAC,
-                            parChavesRSA,
-                            nome
+                    String envErro = sessao.empacotarMensagem(
+                            "ERRO_HMAC|Execução rejeitada por " + nome + ": HMAC corrompido ou assinatura inválida!"
                     );
                     escritor.println(envErro);
                     return;
                 }
 
                 String msg = envelopeReq.getMensagemOriginal().trim();
+
+                // Health-check PING/PONG cifrado
+                if (msg.equals("PING")) {
+                    escritor.println(sessao.empacotarMensagem("PONG"));
+                    return;
+                }
+
+                // Comando administrativo seguro para ativar/desativar simulação de HMAC corrompido (Caso 3B em processo isolado)
+                if (msg.startsWith("CONFIG_HMAC_CORROMPIDO|")) {
+                    boolean ativar = Boolean.parseBoolean(msg.substring("CONFIG_HMAC_CORROMPIDO|".length()).trim());
+                    setSimularHmacCorrompido(ativar);
+                    escritor.println(sessao.empacotarMensagem("OK|Simulação de HMAC corrompido em " + nome + " = " + ativar));
+                    return;
+                }
+
+                // Comando administrativo seguro para encerrar o processo do servidor (Caso 3D)
+                if (msg.equals("SHUTDOWN")) {
+                    escritor.println(sessao.empacotarMensagem("OK|Encerrando servidor " + nome));
+                    pararServidor();
+                    return;
+                }
 
                 // CALC|OPERACAO|num1|num2
                 if (msg.startsWith("CALC|")) {
@@ -149,7 +191,7 @@ public class ServidorCalculadora {
                             double b = Double.parseDouble(partes[3].trim());
                             respostaPlano = processarCalculo(operacao, a, b);
                             Color.sucesso("[" + nome + " - " + endereco + "] Atendeu '" + operacao
-                                    + "' para '" + envelopeReq.getNomeEmissor() + "' -> " + respostaPlano);
+                                    + "' na sessão com '" + envelopeReq.getNomeEmissor() + "' -> " + respostaPlano);
                         } catch (NumberFormatException nfe) {
                             respostaPlano = "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!";
                         }
@@ -159,33 +201,14 @@ public class ServidorCalculadora {
 
                     String envelopeResposta;
                     if (simularHmacCorrompido) {
-                        Color.alerta("[" + nome + "] Simulando envio de pacote com HMAC adulterado/corrompido...");
-                        envelopeResposta = EnvelopeCriptografico.criarEnvelopeComHmacCorrompido(
-                                respostaPlano,
-                                chaveAES,
-                                chaveHMAC,
-                                parChavesRSA,
-                                nome
-                        );
+                        Color.alerta("[" + nome + "] Simulando envio de pacote na sessão com HMAC adulterado/corrompido...");
+                        envelopeResposta = sessao.empacotarMensagemComHmacCorrompido(respostaPlano);
                     } else {
-                        envelopeResposta = EnvelopeCriptografico.criarEnvelope(
-                                respostaPlano,
-                                chaveAES,
-                                chaveHMAC,
-                                parChavesRSA,
-                                nome
-                        );
+                        envelopeResposta = sessao.empacotarMensagem(respostaPlano);
                     }
                     escritor.println(envelopeResposta);
                 } else {
-                    String envelopeErro = EnvelopeCriptografico.criarEnvelope(
-                            "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!",
-                            chaveAES,
-                            chaveHMAC,
-                            parChavesRSA,
-                            nome
-                    );
-                    escritor.println(envelopeErro);
+                    escritor.println(sessao.empacotarMensagem("ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!"));
                 }
             } catch (Exception e) {
                 Color.erro("[" + nome + "] Erro ao atender cliente: " + e.getMessage());
@@ -252,11 +275,5 @@ public class ServidorCalculadora {
 
     public int getPorta() {
         return porta;
-    }
-
-    public static void main(String[] args) {
-        new ServidorCalculadora("S1", "192.168.0.101", 7001, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
-        new ServidorCalculadora("S2", "192.168.0.102", 7002, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
-        new ServidorCalculadora("S3", "192.168.0.103", 7003, "localhost", ServidorDiretorio.PORTA_DIRETORIO);
     }
 }

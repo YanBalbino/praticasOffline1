@@ -10,12 +10,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.util.Scanner;
 
-import javax.crypto.SecretKey;
-
 import diretorio.ServidorDiretorio;
 import log.Color;
 import seguranca.CriptoUtils;
 import seguranca.EnvelopeCriptografico;
+import seguranca.SessaoSegura;
 
 public class Cliente {
     private final String nomeCliente;
@@ -23,8 +22,6 @@ public class Cliente {
     private final int portaDiretorio;
 
     private final KeyPair parChavesRSA;
-    private final SecretKey chaveAESDiretorio;
-    private final SecretKey chaveHMACDiretorio;
 
     public Cliente(String nomeCliente, String hostDiretorio, int portaDiretorio) {
         this(nomeCliente, hostDiretorio, portaDiretorio, true);
@@ -36,8 +33,6 @@ public class Cliente {
         this.portaDiretorio = portaDiretorio;
 
         this.parChavesRSA = CriptoUtils.gerarParChavesRSA();
-        this.chaveAESDiretorio = CriptoUtils.gerarChaveAES();
-        this.chaveHMACDiretorio = CriptoUtils.gerarChaveHMAC();
 
         if (iniciarMenuInterativo) {
             rodarMenuInterativo();
@@ -52,7 +47,15 @@ public class Cliente {
                 BufferedReader leitorDir = new BufferedReader(
                         new InputStreamReader(socketDiretorio.getInputStream(), StandardCharsets.UTF_8))
         ) {
-            Color.sucesso("[" + nomeCliente + "] Canal seguro (RSA+AES+HMAC) estabelecido com o Servidor de Diretório!");
+            long pid = ProcessHandle.current().pid();
+            SessaoSegura sessaoDir = SessaoSegura.realizarHandshakeComoCliente(
+                    leitorDir,
+                    escritorDir,
+                    nomeCliente,
+                    parChavesRSA
+            );
+            Color.sucesso("[" + nomeCliente + " | PID=" + pid
+                    + "] Canal seguro (Handshake RSA + AES + HMAC) estabelecido com o Servidor de Diretório!");
 
             @SuppressWarnings("resource")
             Scanner teclado = new Scanner(System.in);
@@ -67,25 +70,25 @@ public class Cliente {
 
                 switch (opcao) {
                     case "0":
-                        enviarEnvelopeDiretorio(escritorDir, "LIST", false);
-                        String listagem = lerEnvelopeDiretorio(leitorDir);
+                        enviarEnvelopeDiretorio(escritorDir, sessaoDir, "LIST", false);
+                        String listagem = lerEnvelopeDiretorio(leitorDir, sessaoDir);
                         Color.info("\n" + listagem + "\n");
                         break;
 
                     case "1":
-                        descobrirECalcularInterativo("Calcular soma", escritorDir, leitorDir, teclado, false);
+                        descobrirECalcularInterativo("Calcular soma", escritorDir, leitorDir, sessaoDir, teclado, false);
                         break;
 
                     case "2":
-                        descobrirECalcularInterativo("Calcular subtracao", escritorDir, leitorDir, teclado, false);
+                        descobrirECalcularInterativo("Calcular subtracao", escritorDir, leitorDir, sessaoDir, teclado, false);
                         break;
 
                     case "3":
-                        descobrirECalcularInterativo("Calcular multiplicacao", escritorDir, leitorDir, teclado, false);
+                        descobrirECalcularInterativo("Calcular multiplicacao", escritorDir, leitorDir, sessaoDir, teclado, false);
                         break;
 
                     case "4":
-                        descobrirECalcularInterativo("Calcular divisao", escritorDir, leitorDir, teclado, false);
+                        descobrirECalcularInterativo("Calcular divisao", escritorDir, leitorDir, sessaoDir, teclado, false);
                         break;
 
                     case "5":
@@ -97,23 +100,23 @@ public class Cliente {
                             Color.erro("Erro na entrada de dados. Tente outra vez!\n");
                             break;
                         }
-                        enviarEnvelopeDiretorio(escritorDir, "STATUS|" + nomeSrv + "|" + statusSrv, false);
-                        Color.sucesso("Resposta do Diretório: " + lerEnvelopeDiretorio(leitorDir) + "\n");
+                        enviarEnvelopeDiretorio(escritorDir, sessaoDir, "STATUS|" + nomeSrv + "|" + statusSrv, false);
+                        Color.sucesso("Resposta do Diretório: " + lerEnvelopeDiretorio(leitorDir, sessaoDir) + "\n");
                         break;
 
                     case "6":
                         System.out.print("Digite o nome do serviço a consultar (ex: Calcular soma / Calcular modulo): ");
                         String servicoPersonalizado = teclado.nextLine().trim();
-                        descobrirECalcularInterativo(servicoPersonalizado, escritorDir, leitorDir, teclado, false);
+                        descobrirECalcularInterativo(servicoPersonalizado, escritorDir, leitorDir, sessaoDir, teclado, false);
                         break;
 
                     case "7":
                         Color.alerta(">>> Simulando envio de pacote com falha de integridade (HMAC corrompido)...");
-                        descobrirECalcularInterativo("Calcular soma", escritorDir, leitorDir, teclado, true);
+                        descobrirECalcularInterativo("Calcular soma", escritorDir, leitorDir, sessaoDir, teclado, true);
                         break;
 
                     case "8":
-                        enviarEnvelopeDiretorio(escritorDir, "QUIT", false);
+                        enviarEnvelopeDiretorio(escritorDir, sessaoDir, "QUIT", false);
                         Color.info("[" + nomeCliente + "] Desconectando do Servidor de Diretório...");
                         return;
 
@@ -131,11 +134,12 @@ public class Cliente {
             String operacao,
             PrintWriter escritorDir,
             BufferedReader leitorDir,
+            SessaoSegura sessaoDir,
             Scanner teclado,
             boolean corromperHmacNoCalculo) throws IOException {
 
-        enviarEnvelopeDiretorio(escritorDir, "DISCOVER|" + operacao, false);
-        String respostaDir = lerEnvelopeDiretorio(leitorDir);
+        enviarEnvelopeDiretorio(escritorDir, sessaoDir, "DISCOVER|" + operacao, false);
+        String respostaDir = lerEnvelopeDiretorio(leitorDir, sessaoDir);
 
         if (respostaDir.startsWith("ERRO_ENTRADA|")) {
             Color.erro(respostaDir.substring("ERRO_ENTRADA|".length()) + "\n");
@@ -187,12 +191,22 @@ public class Cliente {
                 BufferedReader leitorDir = new BufferedReader(
                         new InputStreamReader(socketDir.getInputStream(), StandardCharsets.UTF_8))
         ) {
-            enviarEnvelopeDiretorio(escritorDir, "DISCOVER|" + servicoSolicitado, false);
-            String respostaDir = lerEnvelopeDiretorio(leitorDir);
+            // 1. Handshake RSA com o Diretório para estabelecer chaves de sessão (AES + HMAC)
+            SessaoSegura sessaoDir = SessaoSegura.realizarHandshakeComoCliente(
+                    leitorDir,
+                    escritorDir,
+                    nomeCliente,
+                    parChavesRSA
+            );
+
+            // 2. Solicita a descoberta do serviço cifrada na sessão
+            enviarEnvelopeDiretorio(escritorDir, sessaoDir, "DISCOVER|" + servicoSolicitado, false);
+            String respostaDir = lerEnvelopeDiretorio(leitorDir, sessaoDir);
 
             if (respostaDir.startsWith("ERRO_ENTRADA|")) {
                 String msgErro = respostaDir.substring("ERRO_ENTRADA|".length());
                 Color.erro(msgErro);
+                enviarEnvelopeDiretorio(escritorDir, sessaoDir, "QUIT", false);
                 return respostaDir;
             }
 
@@ -205,13 +219,13 @@ public class Cliente {
 
                 Color.sucesso("[" + nomeCliente + "] Lista de servidores ativos autenticada para '"
                         + servicoSolicitado + "': [" + listaAtivos + "]");
-                Color.info("[" + nomeCliente + "] Nó selecionado pelo balanceador (Round-Robin): "
+                Color.info("[" + nomeCliente + "] Nó selecionado pelo balanceador: "
                         + nomeServidor + " (" + ip + ":" + porta + ")");
             } else {
                 Color.alerta("[" + nomeCliente + "] Resposta do Diretório: " + respostaDir);
             }
 
-            enviarEnvelopeDiretorio(escritorDir, "QUIT", false);
+            enviarEnvelopeDiretorio(escritorDir, sessaoDir, "QUIT", false);
             return respostaDir;
         } catch (Exception e) {
             Color.erro("[" + nomeCliente + "] Falha ao consultar o Diretório: " + e.getMessage());
@@ -221,7 +235,7 @@ public class Cliente {
 
     /**
      * Descobre o serviço no Diretório e executa a operação matemática no servidor selecionado pelo Load Balancer,
-     * abrindo uma sessão cifrada (AES + HMAC + RSA) individual com o servidor selecionado.
+     * abrindo uma sessão cifrada (Handshake RSA + AES + HMAC + Assinatura RSA) individual com o servidor selecionado.
      */
     public String descobrirECalcular(String servicoSolicitado, double num1, double num2, boolean corromperHmac) {
         String respostaDir = descobrirServicoNoDiretorio(servicoSolicitado);
@@ -246,7 +260,7 @@ public class Cliente {
     }
 
     /**
-     * Abre uma sessão cifrada (AES + HMAC + Assinatura RSA) exclusiva com o Servidor de Cálculo selecionado.
+     * Abre uma sessão cifrada (Handshake RSA + AES + HMAC + Assinatura RSA) exclusiva com o Servidor de Cálculo selecionado.
      */
     public String executarChamadaServidorCalculo(
             String nomeServidor,
@@ -257,10 +271,6 @@ public class Cliente {
             String num2,
             boolean enviarHmacCorrompido) {
 
-        // Gera chaves simétricas (AES e HMAC) exclusivas para esta sessão individual com o servidor selecionado
-        SecretKey chaveSessaoAES = CriptoUtils.gerarChaveAES();
-        SecretKey chaveSessaoHMAC = CriptoUtils.gerarChaveHMAC();
-
         try (
                 Socket socketCalc = new Socket("localhost", portaServidor);
                 PrintWriter escritorCalc = new PrintWriter(
@@ -269,25 +279,22 @@ public class Cliente {
                         new InputStreamReader(socketCalc.getInputStream(), StandardCharsets.UTF_8))
         ) {
             socketCalc.setSoTimeout(3000);
+
+            // 1. Handshake RSA com o Servidor de Cálculo para negociar chaves AES e HMAC exclusivas da sessão
+            SessaoSegura sessaoCalc = SessaoSegura.realizarHandshakeComoCliente(
+                    leitorCalc,
+                    escritorCalc,
+                    nomeCliente,
+                    parChavesRSA
+            );
+
             String reqCalculo = "CALC|" + operacao + "|" + num1 + "|" + num2;
 
             String envelopeEnvio;
             if (enviarHmacCorrompido) {
-                envelopeEnvio = EnvelopeCriptografico.criarEnvelopeComHmacCorrompido(
-                        reqCalculo,
-                        chaveSessaoAES,
-                        chaveSessaoHMAC,
-                        parChavesRSA,
-                        nomeCliente
-                );
+                envelopeEnvio = sessaoCalc.empacotarMensagemComHmacCorrompido(reqCalculo);
             } else {
-                envelopeEnvio = EnvelopeCriptografico.criarEnvelope(
-                        reqCalculo,
-                        chaveSessaoAES,
-                        chaveSessaoHMAC,
-                        parChavesRSA,
-                        nomeCliente
-                );
+                envelopeEnvio = sessaoCalc.empacotarMensagem(reqCalculo);
             }
 
             escritorCalc.println(envelopeEnvio);
@@ -298,7 +305,7 @@ public class Cliente {
                 return "ERRO_CONEXAO|Sem resposta";
             }
 
-            EnvelopeCriptografico envelopeResp = EnvelopeCriptografico.abrirEValidarEnvelope(linhaResposta, nomeCliente);
+            EnvelopeCriptografico envelopeResp = sessaoCalc.desempacotarEValidar(linhaResposta);
             String resultado = envelopeResp.getMensagemOriginal();
 
             if (resultado.startsWith("ERRO_ENTRADA|")) {
@@ -330,35 +337,24 @@ public class Cliente {
         }
     }
 
-    private void enviarEnvelopeDiretorio(PrintWriter escritorDir, String mensagemPlano, boolean corromperHmac) {
-        String envelope;
-        if (corromperHmac) {
-            envelope = EnvelopeCriptografico.criarEnvelopeComHmacCorrompido(
-                    mensagemPlano,
-                    chaveAESDiretorio,
-                    chaveHMACDiretorio,
-                    parChavesRSA,
-                    nomeCliente
-            );
-        } else {
-            envelope = EnvelopeCriptografico.criarEnvelope(
-                    mensagemPlano,
-                    chaveAESDiretorio,
-                    chaveHMACDiretorio,
-                    parChavesRSA,
-                    nomeCliente
-            );
-        }
+    private void enviarEnvelopeDiretorio(
+            PrintWriter escritorDir,
+            SessaoSegura sessaoDir,
+            String mensagemPlano,
+            boolean corromperHmac) {
+        String envelope = corromperHmac
+                ? sessaoDir.empacotarMensagemComHmacCorrompido(mensagemPlano)
+                : sessaoDir.empacotarMensagem(mensagemPlano);
         escritorDir.println(envelope);
     }
 
-    private String lerEnvelopeDiretorio(BufferedReader leitorDir) throws IOException {
+    private String lerEnvelopeDiretorio(BufferedReader leitorDir, SessaoSegura sessaoDir) throws IOException {
         String linha = leitorDir.readLine();
         if (linha == null) {
             return "";
         }
         try {
-            EnvelopeCriptografico env = EnvelopeCriptografico.abrirEValidarEnvelope(linha, nomeCliente);
+            EnvelopeCriptografico env = sessaoDir.desempacotarEValidar(linha);
             return env.getMensagemOriginal();
         } catch (SecurityException se) {
             Color.erro("[" + nomeCliente + " - ALERTA] Resposta do Diretório com HMAC inválido: " + se.getMessage());
@@ -383,8 +379,28 @@ public class Cliente {
         System.out.print("Selecione uma operação: ");
     }
 
+    /**
+     * Permite executar cada Cliente como um processo independente (interativo ou automatizado):
+     * Exemplos:
+     *   java cliente.Cliente "Cliente 1"
+     *   java cliente.Cliente "Cliente 1" --discover "Calcular soma"
+     *   java cliente.Cliente "Cliente 1" --calc "Calcular soma" 10 20 false
+     */
     public static void main(String[] args) {
-        String nome = (args.length > 0) ? args[0] : "Cliente1";
+        String nome = (args.length > 0) ? args[0] : "Cliente 1";
+        if (args.length >= 3 && args[1].equalsIgnoreCase("--discover")) {
+            Cliente c = new Cliente(nome, "localhost", ServidorDiretorio.PORTA_DIRETORIO, false);
+            c.descobrirServicoNoDiretorio(args[2]);
+            return;
+        }
+        if (args.length >= 6 && args[1].equalsIgnoreCase("--calc")) {
+            Cliente c = new Cliente(nome, "localhost", ServidorDiretorio.PORTA_DIRETORIO, false);
+            double n1 = Double.parseDouble(args[3]);
+            double n2 = Double.parseDouble(args[4]);
+            boolean corromper = Boolean.parseBoolean(args[5]);
+            c.descobrirECalcular(args[2], n1, n2, corromper);
+            return;
+        }
         new Cliente(nome, "localhost", ServidorDiretorio.PORTA_DIRETORIO, true);
     }
 }

@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -17,13 +18,15 @@ import log.Color;
  * Representa o Envelope Criptográfico Híbrido trafegado entre Clientes, Diretório e Servidores de Cálculo.
  *
  * Fluxo do Emissor:
- * 1. Criptografa a mensagem com criptografia simétrica AES utilizando a chave pública/compartilhada da sessão.
+ * 1. Criptografa a mensagem com criptografia simétrica AES utilizando a chave simétrica da sessão.
  * 2. Aplica o hash HMAC (HmacSHA256) sobre a mensagem criptografada do emissor.
  * 3. Criptografa o resultado do HMAC com criptografia assimétrica RSA utilizando a CHAVE PRIVADA do emissor (Assinatura Digital).
+ * 4. Criptografa as chaves simétricas (AES e HMAC) com criptografia assimétrica RSA utilizando a CHAVE PÚBLICA do destinatário.
  *
  * Fluxo do Destinatário:
- * 1. Valida o hash descriptografando a assinatura com a CHAVE PÚBLICA RSA do emissor e comparando com o HMAC calculado sobre a mensagem cifrada.
- * 2. Descriptografa a mensagem com criptografia simétrica AES utilizando a chave da sessão.
+ * 1. Descriptografa as chaves simétricas (AES e HMAC) com sua CHAVE PRIVADA RSA.
+ * 2. Valida o hash descriptografando a assinatura com a CHAVE PÚBLICA RSA do emissor e comparando com o HMAC calculado sobre a mensagem cifrada.
+ * 3. Descriptografa a mensagem com criptografia simétrica AES utilizando a chave da sessão.
  */
 public class EnvelopeCriptografico {
 
@@ -73,37 +76,46 @@ public class EnvelopeCriptografico {
         return assinaturaDigitalRSA;
     }
 
+    /**
+     * Cria o Envelope Criptográfico Híbrido completo:
+     * - Payload cifrado com AES (chave da sessão);
+     * - HMAC calculado sobre o texto cifrado e assinado com a Chave Privada RSA do Emissor;
+     * - Chaves simétricas (AES e HMAC) cifradas com a Chave Pública RSA do Destinatário (nunca em texto claro).
+     */
     public static String criarEnvelope(
             String mensagemPlano,
             SecretKey chaveAES,
             SecretKey chaveHMAC,
             KeyPair parChavesRSAEmissor,
+            PublicKey chavePublicaDestinatario,
             String nomeEmissor) {
 
-        // confidencialidade: cifra a mensagem com AES
+        // 1. Confidencialidade do payload: cifra a mensagem com AES
         String msgCifradaB64 = CriptoUtils.cifrarAES(mensagemPlano, chaveAES);
 
-        // integridade: aplica o hash HMAC sobre a mensagem criptografada do emissor
+        // 2. Integridade: aplica o hash HMAC sobre a mensagem criptografada do emissor (Encrypt-then-MAC)
         String hashHmacB64 = CriptoUtils.calcularHMAC(msgCifradaB64, chaveHMAC);
 
-        // autenticidade e irretratabilidade: criptografa o HMAC com RSA utilizando a chave privada do emissor
+        // 3. Autenticidade e Irretratabilidade: assina o HMAC com RSA utilizando a chave privada do emissor
         String assinaturaRsaB64 = CriptoUtils.criptografarHmacComChavePrivadaRSA(
                 hashHmacB64,
                 parChavesRSAEmissor.getPrivate()
         );
 
-        String chaveAesB64 = CriptoUtils.chaveSimetricaParaBase64(chaveAES);
-        String chaveHmacB64 = CriptoUtils.chaveSimetricaParaBase64(chaveHMAC);
+        // 4. Confidencialidade das chaves de sessão: cifra chaveAES e chaveHMAC com a Chave Pública RSA do destinatário
+        String chaveAesCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveAES, chavePublicaDestinatario);
+        String chaveHmacCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveHMAC, chavePublicaDestinatario);
         String chavePublicaEmissorB64 = CriptoUtils.chavePublicaParaBase64(parChavesRSAEmissor.getPublic());
 
         registrarLog("INFO", "[" + nomeEmissor + " -> ENVIO SEGURO] "
                 + "AES_Cipher=" + CriptoUtils.resumirBase64(msgCifradaB64)
                 + " | HMAC=" + CriptoUtils.resumirBase64(hashHmacB64)
-                + " | AssinaturaRSA(PrivKey)=" + CriptoUtils.resumirBase64(assinaturaRsaB64));
+                + " | AssinaturaRSA(PrivKey)=" + CriptoUtils.resumirBase64(assinaturaRsaB64)
+                + " | ChaveAES_RSA(PubKeyDest)=" + CriptoUtils.resumirBase64(chaveAesCifradaRsaB64));
 
-        // ENVELOPE | nomeEmissor | msgCifradaAES | assinaturaRSA_do_HMAC | chaveAES | chaveHMAC | chavePublicaEmissorRSA
+        // ENVELOPE | nomeEmissor | msgCifradaAES | assinaturaRSA_do_HMAC | chaveAesCifradaRSA | chaveHmacCifradaRSA | chavePublicaEmissorRSA
         return "ENVELOPE|" + nomeEmissor + "|" + msgCifradaB64 + "|" + assinaturaRsaB64 + "|"
-                + chaveAesB64 + "|" + chaveHmacB64 + "|" + chavePublicaEmissorB64;
+                + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
     }
 
     public static String criarEnvelopeComHmacCorrompido(
@@ -111,19 +123,20 @@ public class EnvelopeCriptografico {
             SecretKey chaveAES,
             SecretKey chaveHMAC,
             KeyPair parChavesRSAEmissor,
+            PublicKey chavePublicaDestinatario,
             String nomeEmissor) {
 
         String msgCifradaB64 = CriptoUtils.cifrarAES(mensagemPlano, chaveAES);
 
-        // adultera o HMAC antes de assinar
+        // Adultera o HMAC antes de assinar para simular ataque/corrupção de integridade (Caso 3)
         String hashHmacAdulterado = CriptoUtils.calcularHMAC(msgCifradaB64 + "_ADULTERADO", chaveHMAC);
         String assinaturaRsaCorrompida = CriptoUtils.criptografarHmacComChavePrivadaRSA(
                 hashHmacAdulterado,
                 parChavesRSAEmissor.getPrivate()
         );
 
-        String chaveAesB64 = CriptoUtils.chaveSimetricaParaBase64(chaveAES);
-        String chaveHmacB64 = CriptoUtils.chaveSimetricaParaBase64(chaveHMAC);
+        String chaveAesCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveAES, chavePublicaDestinatario);
+        String chaveHmacCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveHMAC, chavePublicaDestinatario);
         String chavePublicaEmissorB64 = CriptoUtils.chavePublicaParaBase64(parChavesRSAEmissor.getPublic());
 
         registrarLog("ALERTA", "[" + nomeEmissor + " -> ENVIO COM HMAC ADULTERADO] "
@@ -131,16 +144,21 @@ public class EnvelopeCriptografico {
                 + " | HMAC_CORROMPIDO=" + CriptoUtils.resumirBase64(hashHmacAdulterado));
 
         return "ENVELOPE|" + nomeEmissor + "|" + msgCifradaB64 + "|" + assinaturaRsaCorrompida + "|"
-                + chaveAesB64 + "|" + chaveHmacB64 + "|" + chavePublicaEmissorB64;
+                + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
     }
 
     /**
      * Abre e valida o Envelope Criptográfico no Destinatário:
-     * 1. Descriptografa a assinatura RSA usando a CHAVE PÚBLICA do emissor para obter o HMAC enviado.
-     * 2. Recalcula o HMAC sobre a mensagem criptografada recebida e compara ambos (Integridade + Autenticidade + Irretratabilidade).
-     * 3. Descriptografa a mensagem com criptografia simétrica AES (Confidencialidade).
+     * 1. Decifra as chaves simétricas (AES e HMAC) usando a CHAVE PRIVADA RSA do destinatário.
+     * 2. Descriptografa a assinatura RSA usando a CHAVE PÚBLICA do emissor para obter o HMAC enviado.
+     * 3. Recalcula o HMAC sobre a mensagem criptografada recebida e compara ambos (Integridade + Autenticidade + Irretratabilidade).
+     * 4. Descriptografa a mensagem com criptografia simétrica AES (Confidencialidade).
      */
-    public static EnvelopeCriptografico abrirEValidarEnvelope(String pacoteRecebido, String nomeDestinatario) {
+    public static EnvelopeCriptografico abrirEValidarEnvelope(
+            String pacoteRecebido,
+            String nomeDestinatario,
+            PrivateKey chavePrivadaDestinatario) {
+
         if (pacoteRecebido == null || !pacoteRecebido.startsWith("ENVELOPE|")) {
             throw new SecurityException("Pacote fora do formato de Envelope Criptográfico!");
         }
@@ -153,21 +171,22 @@ public class EnvelopeCriptografico {
         String nomeEmissor = partes[1].trim();
         String msgCifradaB64 = partes[2].trim();
         String assinaturaRsaB64 = partes[3].trim();
-        String chaveAesB64 = partes[4].trim();
-        String chaveHmacB64 = partes[5].trim();
+        String chaveAesCifradaRsaB64 = partes[4].trim();
+        String chaveHmacCifradaRsaB64 = partes[5].trim();
         String chavePublicaEmissorB64 = partes[6].trim();
 
-        SecretKey chaveAES = CriptoUtils.chaveAESDeBase64(chaveAesB64);
-        SecretKey chaveHMAC = CriptoUtils.chaveHMACDeBase64(chaveHmacB64);
+        // 1. Decifra as chaves simétricas da sessão usando a Chave Privada RSA do Destinatário
+        SecretKey chaveAES = CriptoUtils.decifrarChaveAESComPrivadaRSA(chaveAesCifradaRsaB64, chavePrivadaDestinatario);
+        SecretKey chaveHMAC = CriptoUtils.decifrarChaveHMACComPrivadaRSA(chaveHmacCifradaRsaB64, chavePrivadaDestinatario);
         PublicKey chavePublicaEmissor = CriptoUtils.chavePublicaDeBase64(chavePublicaEmissorB64);
 
-        // valida autenticidade e irretratabilidade: decifra o hash HMAC usando a Chave Pública RSA do Emissor
+        // 2. Valida autenticidade e irretratabilidade: decifra o hash HMAC usando a Chave Pública RSA do Emissor
         String hashExtraidoDaAssinatura = CriptoUtils.descriptografarHmacComChavePublicaRSA(
                 assinaturaRsaB64,
                 chavePublicaEmissor
         );
 
-        // valida integridade: calcula localmente o HMAC sobre a mensagem criptografada recebida
+        // 3. Valida integridade: calcula localmente o HMAC sobre a mensagem criptografada recebida
         String hashCalculadoLocalmente = CriptoUtils.calcularHMAC(msgCifradaB64, chaveHMAC);
 
         if (!CriptoUtils.validarHashes(hashExtraidoDaAssinatura, hashCalculadoLocalmente)) {
@@ -178,12 +197,12 @@ public class EnvelopeCriptografico {
             throw new SecurityException(msgErro);
         }
 
-        // confidencialidade: descriptografa a mensagem com criptografia simétrica AES
+        // 4. Confidencialidade: descriptografa a mensagem com criptografia simétrica AES
         String mensagemOriginal = CriptoUtils.decifrarAES(msgCifradaB64, chaveAES);
 
         registrarLog("SUCESSO", "[" + nomeDestinatario + " <- CANAL SEGURO VALIDADO de " + nomeEmissor + "] "
-                + "Assinatura RSA (PubKey) OK | HMAC OK (" + CriptoUtils.resumirBase64(hashCalculadoLocalmente) + ") "
-                + "| AES Decifrado OK");
+                + "Chaves Sessão RSA(PrivKey) OK | Assinatura RSA(PubKey) OK | HMAC OK ("
+                + CriptoUtils.resumirBase64(hashCalculadoLocalmente) + ") | AES Decifrado OK");
 
         return new EnvelopeCriptografico(
                 nomeEmissor,
@@ -224,7 +243,6 @@ public class EnvelopeCriptografico {
                 break;
         }
 
-        // Escrita imediata e sincronizada com o sistema de arquivos durante a execução
         try (FileOutputStream fos = new FileOutputStream(ARQUIVO_LOG, true)) {
             fos.write(linhaArquivo.getBytes(StandardCharsets.UTF_8));
             fos.flush();
