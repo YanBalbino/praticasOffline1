@@ -3,7 +3,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,10 +49,6 @@ public class ServidorDNS {
                 if (!mensagemRecebida.isEmpty()){
                     
                     // [CRIPTO] decriptografia aqui
-                    
-                    System.out.println("Mensagem recebida: " + mensagemRecebida);
-
-                    String resposta = "";
 
                     // mensagem inicial para registrar cliente conectado
                     if (mensagemRecebida.startsWith("HELLO")){
@@ -62,9 +57,13 @@ public class ServidorDNS {
                         clientesConectados.add(novoCliente);
                         continue; // não precisa enviar resposta para o cliente nesse caso
                     }
+                    
+                    System.out.println("Mensagem recebida: " + mensagemRecebida);
+
+                    String resposta = "";
 
                     // opções de operações solicitadas pelo cliente
-                    else if (mensagemRecebida.startsWith("LIST")){
+                    if (mensagemRecebida.startsWith("LIST")){
                         resposta = "Servidores:\n";
 
                         for (HashMap.Entry<String, String> entry : tabelaDNS.entrySet()){
