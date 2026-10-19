@@ -1,0 +1,30 @@
+[2026-10-19 15:45:57] [SEGURANCA] [P0 <-> P1] Canal seguro estabelecido no enlace P0–P1 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=Lm9FjIJQmkcW...vhxw==)
+[2026-10-19 15:45:57] [SEGURANCA] [P0 -> P1 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=bPkPF86wWENd...v0dtdW | HMAC=cVXvh3OrCSnv...5AFaw= | ChaveAES_RSA=Up13quAFuejd...MtDw==
+[2026-10-19 15:45:57] [SEGURANCA] [P1 <- P0 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (cVXvh3OrCSnv...5AFaw=) | Payload AES decifrado com sucesso
+[2026-10-19 15:45:57] [SEGURANCA] [P1 <-> P2] Canal seguro estabelecido no enlace P1–P2 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=OV0xc3bXiPQ7...MOIA==)
+[2026-10-19 15:45:57] [SEGURANCA] [P1 -> P2 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=XIn0//XhOnwx...nO6WE= | HMAC=8YebZw1dlDQ4...V8nSI= | ChaveAES_RSA=STKm823DTCLD...RATg==
+[2026-10-19 15:45:57] [SEGURANCA] [P2 <- P1 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (8YebZw1dlDQ4...V8nSI=) | Payload AES decifrado com sucesso
+[2026-10-19 15:45:57] [SEGURANCA] [P2 <-> P3] Canal seguro estabelecido no enlace P2–P3 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=k/Ty+WlcsHCn...8K1w==)
+[2026-10-19 15:45:57] [SEGURANCA] [P2 -> P3 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=ur0Cp8kAD/zj...LvMXQ= | HMAC=njQD4SU+hGu1...x/zT8= | ChaveAES_RSA=c9HCLrSaE+aZ...7VnA==
+[2026-10-19 15:45:57] [SEGURANCA] [P3 <- P2 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (njQD4SU+hGu1...x/zT8=) | Payload AES decifrado com sucesso
+[2026-10-19 15:45:57] [SEGURANCA] [P3 <-> P0] Canal seguro estabelecido no enlace P3–P0 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=y6CwVxc/m7XT...6bDQ==)
+[2026-10-19 15:45:57] [SEGURANCA] [P3 -> P0 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=xZfUj/smUTBN...RRN4M= | HMAC=+tyopwlTjfYE...RZ3i0= | ChaveAES_RSA=Kvyp+AmhjpdM...p+0w==
+[2026-10-19 15:45:57] [SEGURANCA] [P0 <- P3 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (+tyopwlTjfYE...RZ3i0=) | Payload AES decifrado com sucesso
+[2026-10-19 15:45:58] [SEGURANCA] [P4 <-> P5] Canal seguro estabelecido no enlace P4–P5 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=no3MVAKEbUAU...TSPg==)
+[2026-10-19 15:45:58] [ALERTA] [P4 -> P5 | SIMULAÇÃO DE ADULTERAÇÃO NO CANAL] Enviando pacote cifrado com HMAC adulterado (nfJhu+4KkqBn...VbpOw=)
+[2026-10-19 15:45:58] [ERRO] [P5 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de P4] Divergência de HMAC detectada! HMAC recebido (nfJhu+4KkqBn...VbpOw=) != HMAC calculado (p46uR3XeGGWs...XJQPc=). Pacote descartado e repasse interrompido!
+[2026-10-19 16:00:49] [SEGURANCA] [P0 <-> P1] Canal seguro estabelecido no enlace P0–P1 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=JV/P2bvxd8Zh...1eeQ==)
+[2026-10-19 16:00:49] [SEGURANCA] [P0 -> P1 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=2DJCRlA0IEJE...qKD//v | HMAC=L/PZwSbBdBal...DDqAs= | ChaveAES_RSA=lhv6HpGwUq20...5/YA==
+[2026-10-19 16:00:49] [SEGURANCA] [P1 <- P0 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (L/PZwSbBdBal...DDqAs=) | Payload AES decifrado com sucesso
+[2026-10-19 16:01:36] [SEGURANCA] [P0 <-> P1] Canal seguro estabelecido no enlace P0–P1 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=Fvlr1FD/khyF...1QVQ==)
+[2026-10-19 16:01:36] [SEGURANCA] [P0 -> P1 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=5cioJNeI9pdr...ZMNnjh | HMAC=Qe3o+eRQrlwZ...4+E3w= | ChaveAES_RSA=fGuqLl5fR9Sn...UpLw==
+[2026-10-19 16:01:36] [SEGURANCA] [P1 <- P0 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (Qe3o+eRQrlwZ...4+E3w=) | Payload AES decifrado com sucesso
+[2026-10-19 16:01:36] [SEGURANCA] [P1 <-> P2] Canal seguro estabelecido no enlace P1–P2 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=YFrWVs0xqhK6...6z6w==)
+[2026-10-19 16:01:36] [SEGURANCA] [P1 -> P2 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=COftZ1ocw575...GHl6M= | HMAC=gUaznxYrnxQY...TXYoM= | ChaveAES_RSA=P50xb2M8A6V1...ZrsQ==
+[2026-10-19 16:01:36] [SEGURANCA] [P2 <- P1 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (gUaznxYrnxQY...TXYoM=) | Payload AES decifrado com sucesso
+[2026-10-19 16:01:37] [SEGURANCA] [P2 <-> P3] Canal seguro estabelecido no enlace P2–P3 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=ZOjthcMnRRw7...msFA==)
+[2026-10-19 16:01:37] [SEGURANCA] [P2 -> P3 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=BLc3Eu5wcWt9...XF6bA= | HMAC=avy81QNWVOsc...3HOVc= | ChaveAES_RSA=Zm7IrNhZIgYP...wwlg==
+[2026-10-19 16:01:37] [SEGURANCA] [P3 <- P2 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (avy81QNWVOsc...3HOVc=) | Payload AES decifrado com sucesso
+[2026-10-19 16:01:37] [SEGURANCA] [P3 <-> P0] Canal seguro estabelecido no enlace P3–P0 (Troca de chaves AES/HMAC via RSA concluída | ChaveAES_RSA=qzPVO1gnGXlY...i1PA==)
+[2026-10-19 16:01:37] [SEGURANCA] [P3 -> P0 | ENCRIPTAÇÃO AES/HMAC] AES_Cipher=zQ/VFaCca3Vg...dH9qw= | HMAC=XJeXFFRj766w...QkSeE= | ChaveAES_RSA=vgZgeMVNmMdz...ouLA==
+[2026-10-19 16:01:37] [SEGURANCA] [P0 <- P3 | VALIDAÇÃO CRIPTOGRÁFICA OK] Chaves AES/HMAC decifradas via RSA | Integridade HMAC verificada (XJeXFFRj766w...QkSeE=) | Payload AES decifrado com sucesso
