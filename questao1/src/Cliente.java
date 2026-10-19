@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
@@ -22,7 +23,8 @@ public class Cliente {
             InetAddress enderecoServidor = InetAddress.getByName("localhost");
 
             // envio inicial para estabelecimento de informações de conexão cliente-servidor
-            byte[] hello = "HELLO".getBytes(StandardCharsets.UTF_8);
+            String mensagemInicial = "HELLO de " + socket.getInetAddress() + ":" + socket.getLocalPort();
+            byte[] hello = mensagemInicial.getBytes(StandardCharsets.UTF_8);
             DatagramPacket pacoteHello = new DatagramPacket(hello, hello.length, enderecoServidor, PORTA_DNS);
             socket.send(pacoteHello);
 
@@ -37,16 +39,17 @@ public class Cliente {
                             socket.receive(pacoteRecebido);
                             // por algum motivo não precisa de buffer = pacoteRecebido.getData()
                             
-                            String mensagem = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
-                            if (!mensagem.isEmpty()){
+                            String mensagemRecebida = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+                            if (!mensagemRecebida.isEmpty()){
 
                                 // [CRIPTO] decriptografia aqui
 
-                                if (mensagem.startsWith("NOTIFY|")){
-                                    System.out.println("\n[NOTIFICAÇÃO]: " + mensagem.substring(7) + "\n");
+
+                                if (mensagemRecebida.startsWith("NOTIFY|")){
+                                    System.out.println("\n[NOTIFICAÇÃO]: " + mensagemRecebida.substring(7) + "\n");
                                 }
                                 else{
-                                    System.out.println("Resposta do servidor:\n" + mensagem);
+                                    System.out.println("Resposta do servidor:\n" + mensagemRecebida);
                                 }
                                 
                             }
@@ -128,12 +131,8 @@ public class Cliente {
         } catch (IOException e) {
             System.err.println("Erro ao se comunicar com servidor: " + e.getMessage());
         } finally {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (Exception e) {
-                    System.err.println("Erro ao fechar socket: " + e.getMessage());
-                }
+            if (!socket.isClosed()) {
+                socket.close();
             }
         }
     }
