@@ -1,0 +1,186 @@
+[2026-10-19 08:27:54] [S1 -> ENVIO SEGURO] AES_Cipher=KJ/i0euZgrw+...US5Tw= | HMAC=Ygu0wZbeABqf...gmiyg= | AssinaturaRSA(PrivKey)=GnP/xWW7iaaR...JjDA==
+[2026-10-19 08:27:54] [S2 -> ENVIO SEGURO] AES_Cipher=KsuQojSKmwZd...Gz1YI= | HMAC=3gGNQu2bwLCz...OGp6A= | AssinaturaRSA(PrivKey)=bXo0EOKIJ7OX...WEWA==
+[2026-10-19 08:27:54] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (Ygu0wZbeABqf...gmiyg=) | AES Decifrado OK
+[2026-10-19 08:27:54] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (3gGNQu2bwLCz...OGp6A=) | AES Decifrado OK
+[2026-10-19 08:27:54] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=8tg3UdUsl9so...xcU3U= | HMAC=Wp2GD79Mc27S...m/2ko= | AssinaturaRSA(PrivKey)=WQCZZqcnv6Cv...RgQA==
+[2026-10-19 08:27:54] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=DwQYDwj/FuuC...xcU3U= | HMAC=rFBQq1z1dwMK...A3TIE= | AssinaturaRSA(PrivKey)=j0UY6x/iHvdB...if6g==
+[2026-10-19 08:27:54] [S2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (Wp2GD79Mc27S...m/2ko=) | AES Decifrado OK
+[2026-10-19 08:27:54] [S1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (rFBQq1z1dwMK...A3TIE=) | AES Decifrado OK
+[2026-10-19 08:27:54] [S3 -> ENVIO SEGURO] AES_Cipher=hssrJQ+mRmRg...X25bg= | HMAC=vKe34WfqX/7a...XW/jg= | AssinaturaRSA(PrivKey)=YM+JfkQLvUQ9...q7Ag==
+[2026-10-19 08:27:54] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (vKe34WfqX/7a...XW/jg=) | AES Decifrado OK
+[2026-10-19 08:27:54] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=clAFyfL9l74r...xcU3U= | HMAC=pdXwVgkR13ce...8eBdM= | AssinaturaRSA(PrivKey)=RQqb9VKOsPoS...R0vg==
+[2026-10-19 08:27:54] [S3 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (pdXwVgkR13ce...8eBdM=) | AES Decifrado OK
+[2026-10-19 08:28:35] [cliente2 -> ENVIO SEGURO] AES_Cipher=Vi4I6Znv/KVC...FZwg== | HMAC=usAIigSwjoEL...OlS1E= | AssinaturaRSA(PrivKey)=ojPyLW9Taql2...Cn9A==
+[2026-10-19 08:28:35] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (usAIigSwjoEL...OlS1E=) | AES Decifrado OK
+[2026-10-19 08:28:35] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=AwlaKaMkF5/J...YzFA== | HMAC=vE5IKHH8Leu4...SIjbM= | AssinaturaRSA(PrivKey)=MhjhyNsUsfSG...2LqQ==
+[2026-10-19 08:28:35] [cliente2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (vE5IKHH8Leu4...SIjbM=) | AES Decifrado OK
+[2026-10-19 08:29:01] [cliente2 -> ENVIO SEGURO] AES_Cipher=BwAf+nQ6qZhD...EddJw= | HMAC=BX/PwpCyj26X...jh0+Q= | AssinaturaRSA(PrivKey)=Z76lDpxQZdKx...TGLg==
+[2026-10-19 08:29:01] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (BX/PwpCyj26X...jh0+Q=) | AES Decifrado OK
+[2026-10-19 08:29:01] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=5pm6sMaliP35...9UwVaX | HMAC=wJD7GrRxTeLo...wZZTE= | AssinaturaRSA(PrivKey)=HTwQKglZMcw1...4Cgw==
+[2026-10-19 08:29:01] [cliente2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (wJD7GrRxTeLo...wZZTE=) | AES Decifrado OK
+[2026-10-19 08:29:40] [cliente1 -> ENVIO SEGURO] AES_Cipher=JzOOCTWdfPfd...uS5g== | HMAC=n07lc4gdSS3X...F9Z7o= | AssinaturaRSA(PrivKey)=Pt6lnnePKCfQ...aLhg==
+[2026-10-19 08:29:40] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (n07lc4gdSS3X...F9Z7o=) | AES Decifrado OK
+[2026-10-19 08:29:40] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=AwlaKaMkF5/J...YzFA== | HMAC=vE5IKHH8Leu4...SIjbM= | AssinaturaRSA(PrivKey)=MhjhyNsUsfSG...2LqQ==
+[2026-10-19 08:29:40] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (vE5IKHH8Leu4...SIjbM=) | AES Decifrado OK
+[2026-10-19 08:29:45] [cliente1 -> ENVIO SEGURO] AES_Cipher=LR17TXjXTslq.../e3/Y= | HMAC=BCSlvK/kMbgl...N1IbQ= | AssinaturaRSA(PrivKey)=R7m9Aap8iw4h...JDEA==
+[2026-10-19 08:29:45] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (BCSlvK/kMbgl...N1IbQ=) | AES Decifrado OK
+[2026-10-19 08:29:45] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=0rULdHMRoPcd...9UwVaX | HMAC=VEjyR3qrj8E0...dzZGM= | AssinaturaRSA(PrivKey)=QPBIdM242s5w...jPzg==
+[2026-10-19 08:29:45] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (VEjyR3qrj8E0...dzZGM=) | AES Decifrado OK
+[2026-10-19 08:29:55] [cliente2 -> ENVIO SEGURO] AES_Cipher=1yvQ/C9yuD3x...2D6q0= | HMAC=YI6vP2mqWphm...gmppM= | AssinaturaRSA(PrivKey)=IDJ1/dCyYcv6...9yFw==
+[2026-10-19 08:29:55] [S1 <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (YI6vP2mqWphm...gmppM=) | AES Decifrado OK
+[2026-10-19 08:29:55] [S1 -> ENVIO SEGURO] AES_Cipher=PCqw66YXd/8H...5Zhw== | HMAC=C83Q4we1fxIM...m/ZPc= | AssinaturaRSA(PrivKey)=oB/1QDF+EAFJ...NuhQ==
+[2026-10-19 08:29:55] [cliente2 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (C83Q4we1fxIM...m/ZPc=) | AES Decifrado OK
+[2026-10-19 08:30:16] [cliente1 -> ENVIO SEGURO] AES_Cipher=y0LIJ0wPMevc...HxgUA= | HMAC=O6tF4SelK94l...aHhIM= | AssinaturaRSA(PrivKey)=S2vSlf4KUkWN...0+fA==
+[2026-10-19 08:30:16] [S2 <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (O6tF4SelK94l...aHhIM=) | AES Decifrado OK
+[2026-10-19 08:30:16] [S2 -> ENVIO SEGURO] AES_Cipher=dihHSCnOJ3WJ...gCRA== | HMAC=mmAYLkMEEhGb...y71hE= | AssinaturaRSA(PrivKey)=AtuxT2wKKnuS...kCiA==
+[2026-10-19 08:30:16] [cliente1 <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (mmAYLkMEEhGb...y71hE=) | AES Decifrado OK
+[2026-10-19 08:30:32] [cliente1 -> ENVIO SEGURO] AES_Cipher=uE/jwEHROf3/...eGLA== | HMAC=x9wfmu7vUt7u...pglyE= | AssinaturaRSA(PrivKey)=IMHygQk1lmGV...7xPw==
+[2026-10-19 08:30:32] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (x9wfmu7vUt7u...pglyE=) | AES Decifrado OK
+[2026-10-19 08:30:32] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=CtqahNRkZFyc...yWMQ== | HMAC=zpTgKQi3YZzz...hUapI= | AssinaturaRSA(PrivKey)=ep7eq1LFByq0...d4bA==
+[2026-10-19 08:30:32] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (zpTgKQi3YZzz...hUapI=) | AES Decifrado OK
+[2026-10-19 08:30:42] [cliente1 -> ENVIO SEGURO] AES_Cipher=LR17TXjXTslq.../e3/Y= | HMAC=BCSlvK/kMbgl...N1IbQ= | AssinaturaRSA(PrivKey)=R7m9Aap8iw4h...JDEA==
+[2026-10-19 08:30:42] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (BCSlvK/kMbgl...N1IbQ=) | AES Decifrado OK
+[2026-10-19 08:30:42] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=niXBujszGN+8...9UwVaX | HMAC=GIkZnrvkAi2V...QPNEg= | AssinaturaRSA(PrivKey)=hWNJaiapeoOO...GWnA==
+[2026-10-19 08:30:42] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (GIkZnrvkAi2V...QPNEg=) | AES Decifrado OK
+[2026-10-19 08:31:02] [cliente1 -> ENVIO COM HMAC ADULTERADO] AES_Cipher=V/aBL6/nOjH1...EpPgk= | HMAC_CORROMPIDO=0HIr8YbWfJI2...PwRSI=
+[2026-10-19 08:31:02] [S3 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de cliente1] HMAC extraído da assinatura RSA (0HIr8YbWfJI2...PwRSI=) difere do HMAC calculado (s6cqk4fdS4PL...HQ9cA=). Execução rejeitada!
+[2026-10-19 08:31:02] [S3 -> ENVIO SEGURO] AES_Cipher=udK44HWGF2yg...ZbDMk= | HMAC=QuG94xS2Q8n/...U/D8w= | AssinaturaRSA(PrivKey)=AF53gE0RLOpo...vM1A==
+[2026-10-19 08:31:02] [cliente1 <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (QuG94xS2Q8n/...U/D8w=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=dvoBCHxggemz...cf7gw= | HMAC=nUd7cOZH/WXx...kqk/M= | AssinaturaRSA(PrivKey)=N41Yq63jPmXU...Tzmw==
+[2026-10-19 08:39:44] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (nUd7cOZH/WXx...kqk/M=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=LNpSixIDDmAW...8xRlg= | HMAC=BorecSmTEi9Y...0Txfk= | AssinaturaRSA(PrivKey)=tnSBnzDOeAfM...J+QA==
+[2026-10-19 08:39:44] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (BorecSmTEi9Y...0Txfk=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=sNzdhie/PVq8...3dmzc= | HMAC=l8/Tt8Hl9UJ1...UnOV8= | AssinaturaRSA(PrivKey)=DYMBoSJjyZwl...HFiw==
+[2026-10-19 08:39:44] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (l8/Tt8Hl9UJ1...UnOV8=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=Vn0l8EI4aN79...8xRlg= | HMAC=ZWEjrEYxmWRN...tjJfE= | AssinaturaRSA(PrivKey)=Xr0amDD9n3IQ...Oogw==
+[2026-10-19 08:39:44] [SUCESSO] [S2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (ZWEjrEYxmWRN...tjJfE=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [S3 -> ENVIO SEGURO] AES_Cipher=aMuhOqWbndA8...oJtUo= | HMAC=86rsZtTAb2xf...eA6ko= | AssinaturaRSA(PrivKey)=IHDyHBdxE/Ty...x+GQ==
+[2026-10-19 08:39:44] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (86rsZtTAb2xf...eA6ko=) | AES Decifrado OK
+[2026-10-19 08:39:44] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=Mhz9I2iG0u5v...8xRlg= | HMAC=81vhxHRvIGbP...e/lyw= | AssinaturaRSA(PrivKey)=VKyUvxz3OdpN...K0Xg==
+[2026-10-19 08:39:44] [SUCESSO] [S3 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (81vhxHRvIGbP...e/lyw=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=4jaqlk/g9HXo...rx9to= | HMAC=HP48LNOuh82p.../aPzA= | AssinaturaRSA(PrivKey)=ZBdwJf25z5eM...+YcA==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (HP48LNOuh82p.../aPzA=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=0wCB75GJq/fB...SMP730 | HMAC=M6j8NC/K73wZ...OcUnY= | AssinaturaRSA(PrivKey)=e7q4NgPOgUk1...22Cg==
+[2026-10-19 08:39:45] [SUCESSO] [Cliente 1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (M6j8NC/K73wZ...OcUnY=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=SeS4d/YOjqxX...BIRg== | HMAC=ELwR5AmNJRA/...HPiEY= | AssinaturaRSA(PrivKey)=TZK8XlvPM+B5...pa8Q==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (ELwR5AmNJRA/...HPiEY=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [AdminTeste -> ENVIO SEGURO] AES_Cipher=t04k9SMbN1rx...zdF3k= | HMAC=hP59u/sU2wXS...LZHvk= | AssinaturaRSA(PrivKey)=NjE++264mAQa...7pZQ==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de AdminTeste] Assinatura RSA (PubKey) OK | HMAC OK (hP59u/sU2wXS...LZHvk=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=oN1VM/Ohmhw1...OURxck | HMAC=58T/UqcJz2fa...0pNv0= | AssinaturaRSA(PrivKey)=uG1pnFrLd/j1...KNpQ==
+[2026-10-19 08:39:45] [INFO] [AdminTeste -> ENVIO SEGURO] AES_Cipher=zlZ3ZOjtJKHx...uKNA== | HMAC=lSNJjttHFsAL...+S9+s= | AssinaturaRSA(PrivKey)=kSN8ER+zVuOR...4k2A==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de AdminTeste] Assinatura RSA (PubKey) OK | HMAC OK (lSNJjttHFsAL...+S9+s=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=4jaqlk/g9HXo...rx9to= | HMAC=HP48LNOuh82p.../aPzA= | AssinaturaRSA(PrivKey)=ZBdwJf25z5eM...+YcA==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (HP48LNOuh82p.../aPzA=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=0wCB75GJq/fB...s1aaY= | HMAC=InNx3yN2smS3...bgk34= | AssinaturaRSA(PrivKey)=OxfjAFvCSaY2...Hezg==
+[2026-10-19 08:39:45] [SUCESSO] [Cliente 1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (InNx3yN2smS3...bgk34=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=SeS4d/YOjqxX...BIRg== | HMAC=ELwR5AmNJRA/...HPiEY= | AssinaturaRSA(PrivKey)=TZK8XlvPM+B5...pa8Q==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (ELwR5AmNJRA/...HPiEY=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=4R403Ddn7gnz...+jroY= | HMAC=9lThJBrmeBRl...kDnWk= | AssinaturaRSA(PrivKey)=ZHwWL5I1YlI5...L3zw==
+[2026-10-19 08:39:45] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (9lThJBrmeBRl...kDnWk=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=VfhkQiC34Koh...ydlg== | HMAC=GNhqOKAUHUUe...X1W6U= | AssinaturaRSA(PrivKey)=iaZ9nXgN+QeA...nWBw==
+[2026-10-19 08:39:45] [SUCESSO] [Cliente 1 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (GNhqOKAUHUUe...X1W6U=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 2 -> ENVIO SEGURO] AES_Cipher=q/LDDKOOmTdm...UECQo= | HMAC=2WXpt8XJyCan...Wy8r8= | AssinaturaRSA(PrivKey)=GmTkP+o+WJw1...4GfA==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 2] Assinatura RSA (PubKey) OK | HMAC OK (2WXpt8XJyCan...Wy8r8=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=4QHrNwZmY+uX...s1aaY= | HMAC=FhcBKA5wV8j0...m95o8= | AssinaturaRSA(PrivKey)=C7prX8lZqOcr...RR0g==
+[2026-10-19 08:39:45] [SUCESSO] [Cliente 2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (FhcBKA5wV8j0...m95o8=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 2 -> ENVIO SEGURO] AES_Cipher=zeBKl5ULjv0c...7LLg== | HMAC=zUm8gb3SW9nz...8f51A= | AssinaturaRSA(PrivKey)=Y79DHI5MFxDM...hunQ==
+[2026-10-19 08:39:45] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 2] Assinatura RSA (PubKey) OK | HMAC OK (zUm8gb3SW9nz...8f51A=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [Cliente 2 -> ENVIO SEGURO] AES_Cipher=f81ieQYxSnfv...VYJGpw | HMAC=IZuLQn3Xi8sK...Gm8qg= | AssinaturaRSA(PrivKey)=ECMRYuCEXqwq...3hwA==
+[2026-10-19 08:39:45] [SUCESSO] [S2 <- CANAL SEGURO VALIDADO de Cliente 2] Assinatura RSA (PubKey) OK | HMAC OK (IZuLQn3Xi8sK...Gm8qg=) | AES Decifrado OK
+[2026-10-19 08:39:45] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=c0ZX6Y+zJyFY...twEA== | HMAC=eUlnm3ouoJhE...r0BwE= | AssinaturaRSA(PrivKey)=DwBvayvw5bCP...nj6w==
+[2026-10-19 08:39:45] [SUCESSO] [Cliente 2 <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (eUlnm3ouoJhE...r0BwE=) | AES Decifrado OK
+[2026-10-19 08:39:46] [INFO] [Cliente 3 -> ENVIO SEGURO] AES_Cipher=GeKIkVlsnVbw...wBVW4= | HMAC=g939quy2xqCg...KO2cE= | AssinaturaRSA(PrivKey)=C5nyKIsCPfuA...SX3g==
+[2026-10-19 08:39:46] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 3] Assinatura RSA (PubKey) OK | HMAC OK (g939quy2xqCg...KO2cE=) | AES Decifrado OK
+[2026-10-19 08:39:46] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=pOPuBp1TCK8v...TWkA== | HMAC=Cq17bmVs+8Xc...LRxxg= | AssinaturaRSA(PrivKey)=1mJAhfATWCQ5...0jAA==
+[2026-10-19 08:39:46] [SUCESSO] [Cliente 3 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (Cq17bmVs+8Xc...LRxxg=) | AES Decifrado OK
+[2026-10-19 08:39:46] [INFO] [Cliente 3 -> ENVIO SEGURO] AES_Cipher=m+eJ1mrOMXme...cQFJU= | HMAC=U5nt0ozvG8VK...K+//8= | AssinaturaRSA(PrivKey)=yH710bU5RDMP...fzNg==
+[2026-10-19 08:39:46] [SUCESSO] [S3 <- CANAL SEGURO VALIDADO de Cliente 3] Assinatura RSA (PubKey) OK | HMAC OK (U5nt0ozvG8VK...K+//8=) | AES Decifrado OK
+[2026-10-19 08:39:46] [ALERTA] [S3 -> ENVIO COM HMAC ADULTERADO] AES_Cipher=0ltQS30Gjjc2...orXA== | HMAC_CORROMPIDO=+29WTeVR2tRi...x02kQ=
+[2026-10-19 08:39:46] [ERRO] [Cliente 3 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de S3] HMAC extraído da assinatura RSA (+29WTeVR2tRi...x02kQ=) difere do HMAC calculado (hDdeNMuFilrj...sKNUA=). Execução rejeitada!
+[2026-10-19 08:39:46] [ALERTA] [Cliente 3 -> ENVIO COM HMAC ADULTERADO] AES_Cipher=rfSCN7OTVzOL...G98YM= | HMAC_CORROMPIDO=in650ipbzbYW...bxEwc=
+[2026-10-19 08:39:46] [ERRO] [S3 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de Cliente 3] HMAC extraído da assinatura RSA (in650ipbzbYW...bxEwc=) difere do HMAC calculado (1LVln6QGlJlY...jaAbo=). Execução rejeitada!
+[2026-10-19 08:39:46] [INFO] [S3 -> ENVIO SEGURO] AES_Cipher=mrbyzZfULKrt...CIXIc= | HMAC=9uPtXty0T95T...R8KKI= | AssinaturaRSA(PrivKey)=JdmZkOkJWfCM...qqyQ==
+[2026-10-19 08:39:46] [SUCESSO] [Cliente 3 <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (9uPtXty0T95T...R8KKI=) | AES Decifrado OK
+[2026-10-19 08:39:46] [ERRO] [Cliente 3 - TRATAMENTO DE ERRO DE CONEXÃO] Servidor S3 (192.168.0.103:7003) está inativo/indisponível. Execução abortada sem travar o cliente (Connection refused).
+[2026-10-19 08:39:46] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=4jaqlk/g9HXo...rx9to= | HMAC=HP48LNOuh82p.../aPzA= | AssinaturaRSA(PrivKey)=ZBdwJf25z5eM...+YcA==
+[2026-10-19 08:39:46] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (HP48LNOuh82p.../aPzA=) | AES Decifrado OK
+[2026-10-19 08:39:47] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=0wCB75GJq/fB...s1aaY= | HMAC=InNx3yN2smS3...bgk34= | AssinaturaRSA(PrivKey)=OxfjAFvCSaY2...Hezg==
+[2026-10-19 08:39:47] [SUCESSO] [Cliente 1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (InNx3yN2smS3...bgk34=) | AES Decifrado OK
+[2026-10-19 08:39:47] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=SeS4d/YOjqxX...BIRg== | HMAC=ELwR5AmNJRA/...HPiEY= | AssinaturaRSA(PrivKey)=TZK8XlvPM+B5...pa8Q==
+[2026-10-19 08:39:47] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (ELwR5AmNJRA/...HPiEY=) | AES Decifrado OK
+[2026-10-19 08:39:47] [INFO] [Cliente 1 -> ENVIO SEGURO] AES_Cipher=R0TsxiD2VapP...7KwXc= | HMAC=DmNUs0XcEbyx...I6Wrc= | AssinaturaRSA(PrivKey)=VDXGTuiIR8jg...q9lg==
+[2026-10-19 08:39:47] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de Cliente 1] Assinatura RSA (PubKey) OK | HMAC OK (DmNUs0XcEbyx...I6Wrc=) | AES Decifrado OK
+[2026-10-19 08:39:47] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=VfhkQiC34Koh...wLgw== | HMAC=t7y4wjTIQoUq...H40Y4= | AssinaturaRSA(PrivKey)=cqtgtnhiLkUe...uvMw==
+[2026-10-19 08:39:47] [SUCESSO] [Cliente 1 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (t7y4wjTIQoUq...H40Y4=) | AES Decifrado OK
+[2026-10-19 08:41:50] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=WkfLnf3BozWK...Q52Ck= | HMAC=/3R+WxaY6Mzf...b90Do= | AssinaturaRSA(PrivKey)=N4+y+kMccZem...5KAw==
+[2026-10-19 08:41:51] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (/3R+WxaY6Mzf...b90Do=) | AES Decifrado OK
+[2026-10-19 08:41:51] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=5mwnJ+pPfcJ9...oP3w0= | HMAC=+3HCxe2ofZ+j...xzIXY= | AssinaturaRSA(PrivKey)=J2XTPj7/P1MV...OC5Q==
+[2026-10-19 08:41:51] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (+3HCxe2ofZ+j...xzIXY=) | AES Decifrado OK
+[2026-10-19 08:41:51] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=yXT/MtDSOUFe...KDicI= | HMAC=6DMXtZH5s8tg...6M6Uo= | AssinaturaRSA(PrivKey)=It/vL+SWwSZa...m8Zg==
+[2026-10-19 08:41:51] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (6DMXtZH5s8tg...6M6Uo=) | AES Decifrado OK
+[2026-10-19 08:41:51] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=zYLRYICCUBMx...oP3w0= | HMAC=cwy9QYclJmRS...RDg7k= | AssinaturaRSA(PrivKey)=KAK4MfpTfi6x...HZTQ==
+[2026-10-19 08:41:51] [SUCESSO] [S2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (cwy9QYclJmRS...RDg7k=) | AES Decifrado OK
+[2026-10-19 08:41:51] [INFO] [S3 -> ENVIO SEGURO] AES_Cipher=HNq5D2zoCOf1...5nbA0= | HMAC=rWb9yYyT0jeg...JFinM= | AssinaturaRSA(PrivKey)=jIn2OYgcjRgM.../9EQ==
+[2026-10-19 08:41:51] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (rWb9yYyT0jeg...JFinM=) | AES Decifrado OK
+[2026-10-19 08:41:51] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=yb2YTlP0TaLZ...oP3w0= | HMAC=SrYepPgms+b8...g730M= | AssinaturaRSA(PrivKey)=lRY2kOD7KB8i...YXXQ==
+[2026-10-19 08:41:51] [SUCESSO] [S3 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (SrYepPgms+b8...g730M=) | AES Decifrado OK
+[2026-10-19 08:42:00] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=dBqlXR5/f83h...y11/8= | HMAC=2oqCNVhrZL0L...RFTI8= | AssinaturaRSA(PrivKey)=E/v28vbvMNSw...JFPA==
+[2026-10-19 08:42:00] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (2oqCNVhrZL0L...RFTI8=) | AES Decifrado OK
+[2026-10-19 08:42:00] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=b9WFfpxq75U+...d1dMlz | HMAC=T6HzGPnIAeRx...vsROs= | AssinaturaRSA(PrivKey)=w6grxceWyowH...MI5Q==
+[2026-10-19 08:42:00] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (T6HzGPnIAeRx...vsROs=) | AES Decifrado OK
+[2026-10-19 08:42:04] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=dGz8aAENO/MZ...+hHyo= | HMAC=vsLxEYhbU4LK...C5uj0= | AssinaturaRSA(PrivKey)=WG7ydZnfOURu...kn7w==
+[2026-10-19 08:42:04] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (vsLxEYhbU4LK...C5uj0=) | AES Decifrado OK
+[2026-10-19 08:42:04] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=xBecrjP69B9d...QbRw== | HMAC=rgPS20YGKhTi...lJ0I0= | AssinaturaRSA(PrivKey)=SzTsEZMcyIwr...mSpA==
+[2026-10-19 08:42:04] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (rgPS20YGKhTi...lJ0I0=) | AES Decifrado OK
+[2026-10-19 08:42:19] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=dBqlXR5/f83h...y11/8= | HMAC=2oqCNVhrZL0L...RFTI8= | AssinaturaRSA(PrivKey)=E/v28vbvMNSw...JFPA==
+[2026-10-19 08:42:19] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (2oqCNVhrZL0L...RFTI8=) | AES Decifrado OK
+[2026-10-19 08:42:19] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=jOLmsINULvjo...d1dMlz | HMAC=F8FepZJJHrW+...YU8xI= | AssinaturaRSA(PrivKey)=BtO5AdkvdIF0...I67g==
+[2026-10-19 08:42:19] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (F8FepZJJHrW+...YU8xI=) | AES Decifrado OK
+[2026-10-19 08:42:25] [ALERTA] [cliente1 -> ENVIO COM HMAC ADULTERADO] AES_Cipher=uEPiHVkzrFkt...iUMCw= | HMAC_CORROMPIDO=qSx0VdIqdimJ...ns2Cs=
+[2026-10-19 08:42:25] [ERRO] [S2 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de cliente1] HMAC extraído da assinatura RSA (qSx0VdIqdimJ...ns2Cs=) difere do HMAC calculado (1JU/RZE7dpUt...gdXD0=). Execução rejeitada!
+[2026-10-19 08:42:26] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=+digygzm8iDO...64EVE= | HMAC=z5KDAPhmtZpw...rg7b4= | AssinaturaRSA(PrivKey)=FPdbpCswvliu...3xlw==
+[2026-10-19 08:42:26] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (z5KDAPhmtZpw...rg7b4=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=O9FjPkTe8TfO.../OfkY= | HMAC=f0S73FUwQsF6...Pyx+4= | AssinaturaRSA(PrivKey)=JcAxib6CJuyl...zVSw==
+[2026-10-19 08:47:13] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (f0S73FUwQsF6...Pyx+4=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=eG5joa+UDXql...HobFI= | HMAC=jJg7hNnRRONd...cePXw= | AssinaturaRSA(PrivKey)=Eg8zh+MDlD9g...AFCA==
+[2026-10-19 08:47:13] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (jJg7hNnRRONd...cePXw=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=1LZI/SNPMX4i...2hE7g= | HMAC=kCT/63gLs8y8...izUN0= | AssinaturaRSA(PrivKey)=WxydpG+tsCQr...sg3g==
+[2026-10-19 08:47:13] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (kCT/63gLs8y8...izUN0=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=bWp9ubjRT2JK...HobFI= | HMAC=vGgW4mZOa/le...Lpkd8= | AssinaturaRSA(PrivKey)=TBijUTjiZA59...HGNQ==
+[2026-10-19 08:47:13] [SUCESSO] [S2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (vGgW4mZOa/le...Lpkd8=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [S3 -> ENVIO SEGURO] AES_Cipher=PwDfGfR1L251...bQzzs= | HMAC=OE6UQjK8Fzli.../wZsk= | AssinaturaRSA(PrivKey)=TXy+ogs6Em7w...j3BQ==
+[2026-10-19 08:47:13] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S3] Assinatura RSA (PubKey) OK | HMAC OK (OE6UQjK8Fzli.../wZsk=) | AES Decifrado OK
+[2026-10-19 08:47:13] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=Zx3BjuxSqag3...HobFI= | HMAC=p/7PygrqszFA...edM5c= | AssinaturaRSA(PrivKey)=LQreZE6ZT2JR...eMsg==
+[2026-10-19 08:47:13] [SUCESSO] [S3 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (p/7PygrqszFA...edM5c=) | AES Decifrado OK
+[2026-10-19 08:47:28] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=uNCRQQzcz2Sd...GykLk= | HMAC=KTD1ssOsCFUd...WSzDw= | AssinaturaRSA(PrivKey)=jJQCtYYR5qRU...lHWg==
+[2026-10-19 08:47:28] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (KTD1ssOsCFUd...WSzDw=) | AES Decifrado OK
+[2026-10-19 08:47:28] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=SKoPdSR0P2jP...8EeVCo | HMAC=WQHtbZITTtBU...mZSKk= | AssinaturaRSA(PrivKey)=mdKk9kUINxOt...ASZg==
+[2026-10-19 08:47:28] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (WQHtbZITTtBU...mZSKk=) | AES Decifrado OK
+[2026-10-19 08:47:37] [INFO] [cliente2 -> ENVIO SEGURO] AES_Cipher=abmk7ovnFbAf...G81Uc= | HMAC=Mq9ViZ3Exd1v...zaCTA= | AssinaturaRSA(PrivKey)=W8uc8hpr9sRB.../pwA==
+[2026-10-19 08:47:37] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (Mq9ViZ3Exd1v...zaCTA=) | AES Decifrado OK
+[2026-10-19 08:47:37] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=PUbIeKH0d02s...8EeVCo | HMAC=CdS1rpLMak3p...XDZKQ= | AssinaturaRSA(PrivKey)=aGpd5b6DdDXT...llsg==
+[2026-10-19 08:47:37] [SUCESSO] [cliente2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (CdS1rpLMak3p...XDZKQ=) | AES Decifrado OK
+[2026-10-19 08:47:53] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=kHHLNFuhwJjx...+nV1o= | HMAC=UZOSD3U540sq...VRJUc= | AssinaturaRSA(PrivKey)=V6jCrVKIh2jg...Ss6g==
+[2026-10-19 08:47:53] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (UZOSD3U540sq...VRJUc=) | AES Decifrado OK
+[2026-10-19 08:47:53] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=w4wkGSBYyjgm...XZPw== | HMAC=oAq6bY3zlb3r...q/EiU= | AssinaturaRSA(PrivKey)=S1n9D540mG21...3vJw==
+[2026-10-19 08:47:53] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (oAq6bY3zlb3r...q/EiU=) | AES Decifrado OK
+[2026-10-19 08:47:57] [INFO] [cliente2 -> ENVIO SEGURO] AES_Cipher=GAN5px7PAgAH...ZCRR0= | HMAC=aWishuRmAh7P...gfWA4= | AssinaturaRSA(PrivKey)=M1DlwPgjufd2...HZqg==
+[2026-10-19 08:47:57] [SUCESSO] [S2 <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (aWishuRmAh7P...gfWA4=) | AES Decifrado OK
+[2026-10-19 08:47:57] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=sckehkybjM+i...pF7w== | HMAC=NlrgjKCUMMqv...6DR8I= | AssinaturaRSA(PrivKey)=X/Jm6kwgtIf2...11bw==
+[2026-10-19 08:47:57] [SUCESSO] [cliente2 <- CANAL SEGURO VALIDADO de S2] Assinatura RSA (PubKey) OK | HMAC OK (NlrgjKCUMMqv...6DR8I=) | AES Decifrado OK
+[2026-10-19 08:48:00] [INFO] [cliente2 -> ENVIO SEGURO] AES_Cipher=abmk7ovnFbAf...ovdrY= | HMAC=gODV5RUChhFr...3iLrU= | AssinaturaRSA(PrivKey)=BiCRWTVW7S+W...8Z5A==
+[2026-10-19 08:48:00] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente2] Assinatura RSA (PubKey) OK | HMAC OK (gODV5RUChhFr...3iLrU=) | AES Decifrado OK
+[2026-10-19 08:48:00] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=S6IJ8eHbTPfB...8EeVCo | HMAC=ElYsIENBqmdp...48Oj0= | AssinaturaRSA(PrivKey)=bZccuw7oy6YY...ETMw==
+[2026-10-19 08:48:00] [SUCESSO] [cliente2 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (ElYsIENBqmdp...48Oj0=) | AES Decifrado OK
+[2026-10-19 08:48:05] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=uNCRQQzcz2Sd...ChsdY= | HMAC=KYI7/N6zck+z...gT6G4= | AssinaturaRSA(PrivKey)=YELcm4sScR6A...4XqA==
+[2026-10-19 08:48:05] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (KYI7/N6zck+z...gT6G4=) | AES Decifrado OK
+[2026-10-19 08:48:05] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=SKoPdSR0P2jP...8EeVCo | HMAC=WQHtbZITTtBU...mZSKk= | AssinaturaRSA(PrivKey)=mdKk9kUINxOt...ASZg==
+[2026-10-19 08:48:05] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (WQHtbZITTtBU...mZSKk=) | AES Decifrado OK
+[2026-10-19 08:48:35] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=UC1DHH7C+gZM...6AY5A= | HMAC=tFRbHTe86N5d...IPP1I= | AssinaturaRSA(PrivKey)=p7A3dUygICct...Zntw==
+[2026-10-19 08:48:35] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (tFRbHTe86N5d...IPP1I=) | AES Decifrado OK
+[2026-10-19 08:48:35] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=w4wkGSBYyjgm...3A62tj | HMAC=zi5aZ+FrobBQ...IHHfM= | AssinaturaRSA(PrivKey)=JB1EyhNnW6PU...N5iw==
+[2026-10-19 08:48:35] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de S1] Assinatura RSA (PubKey) OK | HMAC OK (zi5aZ+FrobBQ...IHHfM=) | AES Decifrado OK
+[2026-10-19 08:48:39] [INFO] [cliente1 -> ENVIO SEGURO] AES_Cipher=47jIvc2bNzX9...xzug== | HMAC=Ul1jq1/7ByBs...XfjFQ= | AssinaturaRSA(PrivKey)=LLVvsZcVckw8...Vrvg==
+[2026-10-19 08:48:39] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de cliente1] Assinatura RSA (PubKey) OK | HMAC OK (Ul1jq1/7ByBs...XfjFQ=) | AES Decifrado OK
+[2026-10-19 08:48:39] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=T7oy4VkA9jx1...aqig== | HMAC=s0hj/CIA874o...7mHKQ= | AssinaturaRSA(PrivKey)=d+aMGSXQezsl...Me+g==
+[2026-10-19 08:48:39] [SUCESSO] [cliente1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Assinatura RSA (PubKey) OK | HMAC OK (s0hj/CIA874o...7mHKQ=) | AES Decifrado OK
