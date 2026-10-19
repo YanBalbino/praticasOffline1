@@ -2,9 +2,11 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 public class Cliente {
     private boolean isRegistrador;
@@ -23,10 +25,14 @@ public class Cliente {
             InetAddress enderecoServidor = InetAddress.getByName("localhost");
 
             // envio inicial para estabelecimento de informações de conexão cliente-servidor
-            String mensagemInicial = "HELLO de " + socket.getInetAddress() + ":" + socket.getLocalPort();
+            String mensagemInicial = "HELLO";
             byte[] hello = mensagemInicial.getBytes(StandardCharsets.UTF_8);
             DatagramPacket pacoteHello = new DatagramPacket(hello, hello.length, enderecoServidor, PORTA_DNS);
             socket.send(pacoteHello);
+
+            // blocking queue para armazenar respostas do servidor
+            // e mostrá-las na ordem correta na tela do cliente
+            BlockingQueue<String> filaRespostas = new LinkedBlockingDeque<>();
 
             // thread para ouvir mensagens do servidor
             new Thread (new Runnable(){
@@ -44,12 +50,11 @@ public class Cliente {
 
                                 // [CRIPTO] decriptografia aqui
 
-
                                 if (mensagemRecebida.startsWith("NOTIFY|")){
                                     System.out.println("\n[NOTIFICAÇÃO]: " + mensagemRecebida.substring(7) + "\n");
                                 }
                                 else{
-                                    System.out.println("Resposta do servidor:\n" + mensagemRecebida);
+                                    filaRespostas.offer(mensagemRecebida);
                                 }
                                 
                             }
@@ -126,6 +131,19 @@ public class Cliente {
                 byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
                 socket.send(pacoteResposta);
+
+                // usa uma blocking queue pra esperar a resposta do servidor
+                // presente exclusivamente por organização visual
+                try{
+                    String mensagemDoServidor = filaRespostas.poll(3, TimeUnit.SECONDS);
+                    if (mensagemDoServidor == null){
+                        System.out.println("[ERROR] Tempo de resposta do servidor excedido. Tente novamente."); 
+                    } else {
+                        System.out.println("Resposta do servidor: \n" + mensagemDoServidor);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
 
         } catch (IOException e) {
