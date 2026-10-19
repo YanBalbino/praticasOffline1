@@ -1,31 +1,30 @@
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class Cliente {
-    private String host;
-    private int porta;
     private boolean isRegistrador;
+    DatagramSocket socket = null;
+    private final int PORTA_DNS = 5959;
     
-    public Cliente(String host, int porta, boolean isRegistrador) {
-        this.host = host;
-        this.porta = porta;
+    public Cliente(boolean isRegistrador) {
         this.isRegistrador = isRegistrador;
         rodar();
     }
 
     private void rodar(){
-        Socket socket = null;
-
         try {
             // supondo que o cliente já conhece o endereço IP e a porta do DNS
-            socket = new Socket(host, porta);
-            System.out.println("Conectado ao servidor!");
+            socket = new DatagramSocket();
+            InetAddress enderecoServidor = InetAddress.getByName("localhost");
 
-            OutputStream saida = socket.getOutputStream();
-            InputStream entrada = socket.getInputStream();
+            // envio inicial para estabelecimento de informações de conexão cliente-servidor
+            byte[] hello = "HELLO".getBytes(StandardCharsets.UTF_8);
+            DatagramPacket pacoteHello = new DatagramPacket(hello, hello.length, enderecoServidor, PORTA_DNS);
+            socket.send(pacoteHello);
 
             // thread para ouvir mensagens do servidor
             new Thread (new Runnable(){
@@ -33,29 +32,30 @@ public class Cliente {
                 public void run(){
                     try {
                         while (true){
-                            byte[] buffer = new byte[512];
-                            int bytesLidos = entrada.read(buffer);
-                            if (bytesLidos > 0){
-                                String resposta = new String(buffer, 0, bytesLidos, "UTF-8");
+                            byte[] buffer = new byte[2048];
+                            DatagramPacket pacoteRecebido = new DatagramPacket(buffer, buffer.length);
+                            socket.receive(pacoteRecebido);
+                            // por algum motivo não precisa de buffer = pacoteRecebido.getData()
+                            
+                            String mensagem = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+                            if (!mensagem.isEmpty()){
 
                                 // [CRIPTO] decriptografia aqui
 
-                                if (resposta.startsWith("NOTIFY|")){
-                                    System.out.println("\n[NOTIFICAÇÃO]: " + resposta.substring(7) + "\n");
+                                if (mensagem.startsWith("NOTIFY|")){
+                                    System.out.println("\n[NOTIFICAÇÃO]: " + mensagem.substring(7) + "\n");
                                 }
                                 else{
-                                    System.out.println("Resposta do servidor:\n" + resposta);
+                                    System.out.println("Resposta do servidor:\n" + mensagem);
                                 }
                                 
                             }
-
-                            else if (bytesLidos == -1){
-                                System.out.println("Servidor fechou a conexão.");
-                                break;
-                            }
                         }
                     } catch (IOException e) {
-                        System.err.println("Erro ao escutar servidor: " + e.getMessage());
+                        if (!socket.isClosed()){
+                            System.err.println("Erro ao escutar servidor: " + e.getMessage());
+                        }
+                        
                     }
                 }
             }).start();
@@ -104,7 +104,9 @@ public class Cliente {
 
                         // [CRIPTO] criptografia aqui
 
-                        saida.write(resposta.getBytes("UTF-8"));
+                        byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
+                        DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
+                        socket.send(pacoteResposta);
                         socket.close();
                         return;
 
@@ -117,8 +119,10 @@ public class Cliente {
                 if (operacao == null) continue;
 
                 // [CRIPTO] criptografia aqui
-                
-                saida.write(resposta.getBytes("UTF-8"));
+
+                byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
+                DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
+                socket.send(pacoteResposta);
             }
 
         } catch (IOException e) {
@@ -127,8 +131,8 @@ public class Cliente {
             if (socket != null) {
                 try {
                     socket.close();
-                } catch (IOException e) {
-                    System.err.println("Erro ao fechar o socket: " + e.getMessage());
+                } catch (Exception e) {
+                    System.err.println("Erro ao fechar socket: " + e.getMessage());
                 }
             }
         }
@@ -146,7 +150,7 @@ public class Cliente {
     }
 
     public static void main(String[] args){
-        new Cliente("localhost", 5353, true);
-        //new Cliente("localhost", 5353, false);
+        new Cliente(true);
+        //new Cliente(false);
     }
 }
