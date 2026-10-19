@@ -1,21 +1,25 @@
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ServidorDNS {
-    final int PORTA_DNS = 5353;
-    static Map<String, String> tabelaDNS;
-    static List<Socket> clientesConectados;
+    static HashMap<String, String> tabelaDNS;
+    static Set<InetSocketAddress> clientesConectados; // guardar IP e porta dos clientes conectados
+
+    final int PORTA_DNS = 5959;
+    InetAddress host;
+    DatagramSocket socket = null;
 
     public ServidorDNS() {
-        tabelaDNS = new ConcurrentHashMap<String, String>();
-        clientesConectados = new CopyOnWriteArrayList<Socket>();
+        tabelaDNS = new HashMap<String, String>();
+        clientesConectados = new HashSet<InetSocketAddress>();
 
         for (int i = 0; i < 10; i++) {
             String nome = "servidor" + (i + 1);
@@ -27,147 +31,122 @@ public class ServidorDNS {
     }
 
     private void rodar() {
-        ServerSocket servidorDNS = null;
-
         try {
-            servidorDNS = new ServerSocket(PORTA_DNS);
+            socket = new DatagramSocket(PORTA_DNS);
+            host = InetAddress.getLocalHost();
+
+            System.out.println("Servidor DNS rodando em: " + host.getHostAddress() + ":" + PORTA_DNS + "...");
             
-            System.out.println("Servidor DNS rodando na porta " + PORTA_DNS + "...");
-            
-            // busca novas conexões
             while (true){
-                Socket cliente = servidorDNS.accept();
-                System.out.println("Cliente conectado: " + cliente.getInetAddress());
+                byte[] buffer = new byte[2048];
+                DatagramPacket pacoteRecebido = new DatagramPacket(buffer, buffer.length);
 
-                // adiciona o socket do cliente à lista de clientes conectados
-                clientesConectados.add(cliente);
+                // aguarda mensagem do cliente
+                socket.receive(pacoteRecebido);
 
-                // uma thread para cada cliente
-                new Thread( new Runnable(){
-                    @Override
-                    public void run() {
-                        try {
-                            InputStream entrada = cliente.getInputStream();
-                            OutputStream saida = cliente.getOutputStream();
+                String mensagemRecebida = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
 
-                            // recebe mensagens de um cliente
-                            while (true){
-                                byte[] buffer = new byte[512];
-                                int bytesLidos = entrada.read(buffer);
+                // se houve mensagem do cliente
+                if (!mensagemRecebida.isEmpty()){
+                    
+                    // [CRIPTO] decriptografia aqui
+                    
+                    System.out.println("Mensagem recebida: " + mensagemRecebida);
 
-                                if (bytesLidos == -1) {
-                                    System.out.println("Cliente desconectado: " + cliente.getInetAddress());
-                                    break;
-                                }
-                                // se houve mensagem do cliente
-                                if (bytesLidos > 0){
+                    String resposta = "";
 
-                                    String msgRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
-                                    
-                                    // [CRIPTO] decriptografia aqui
-                                    
-                                    System.out.println("Mensagem recebida: " + msgRecebida);
+                    // mensagem inicial para registrar cliente conectado
+                    if (mensagemRecebida.startsWith("HELLO")){
+                        System.out.println("Novo cliente: " + mensagemRecebida);
+                        InetSocketAddress novoCliente = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
+                        clientesConectados.add(novoCliente);
+                        continue; // não precisa enviar resposta para o cliente nesse caso
+                    }
 
-                                    String resposta = "";
+                    // opções de operações solicitadas pelo cliente
+                    else if (mensagemRecebida.startsWith("LIST")){
+                        resposta = "Servidores:\n";
 
-                                    // opções de operações solicitadas pelo cliente
-                                    if (msgRecebida.startsWith("LIST")){
-                                        resposta = "Servidores:\n";
-
-                                        for (Map.Entry<String, String> entry : tabelaDNS.entrySet()){
-                                            resposta += entry.getKey() + " -> " + entry.getValue() + "\n";
-                                        }
-                                        resposta += "\n";
-
-                                        //TODO jogar esse print pra depois do write
-                                        System.out.println("Listagem enviada ao cliente.");
-                                    }
-                                    else if (msgRecebida.startsWith("GET|")){
-                                        String nomeServidor = msgRecebida.substring(4).trim();
-                                        String enderecoIP = tabelaDNS.get(nomeServidor);
-
-                                        if (enderecoIP != null) resposta = "Endereço IP de " + nomeServidor + ": " + enderecoIP;
-                                        else resposta = nomeServidor + " não encontrado.";
-
-                                        //TODO jogar esse print pra depois do write
-                                        System.out.println("Endereço de servidor enviado ao cliente.");
-                                    }
-
-                                    else if (msgRecebida.startsWith("SET|")){
-                                        String[] partes = msgRecebida.split("\\|");
-                                        if (partes.length == 3){
-                                            String nomeServidorSet = partes[1].trim();
-                                            String novoEnderecoIP = partes[2].trim();
-
-                                            String ipAntigo = tabelaDNS.get(nomeServidorSet);
-
-                                            if (ipAntigo == null) {
-                                                //caso onde a resposta precisa ser enviada antes do loop reiniciar
-                                                resposta = "Servidor " + nomeServidorSet + " não encontrado."; 
-                                                
-                                                // [CRIPTO] criptografia aqui
-
-                                                saida.write(resposta.getBytes("UTF-8"));
-                                                continue;
-                                            }
-
-                                            tabelaDNS.put(nomeServidorSet, novoEnderecoIP);
-                                            resposta = "Endereço IP de " + nomeServidorSet + " atualizado para: " + novoEnderecoIP;
-                                            resposta += "\n";
-
-                                            //TODO criar um print dessa operação pra depois do write
-
-                                            //TODO jogar essa notificação pra depois do write
-                                            //método para notificar clientes conectados sobre atualização de IP
-                                            notificarClientes(nomeServidorSet, ipAntigo, novoEnderecoIP);
-
-                                        } else {
-                                            resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
-                                        }
-                                    }
-
-                                    else if (msgRecebida.startsWith("QUIT")){
-                                        // caso onde a resposta precisa  ser enviada antes do cliente sair
-                                        resposta = "NOTIFY|Desconectando do servidor...\n";
-
-                                        // [CRIPTO] criptografia aqui
-
-                                        saida.write(resposta.getBytes("UTF-8"));
-                                        cliente.close();
-
-                                        System.out.println("O cliente " + cliente.getInetAddress() + " desconectou.");
-                                        break;
-                                    }    
-
-                                    // [CRIPTO] criptografia aqui
-                                    
-                                    //TODO criar um seletor de prints pós write
-                                    saida.write(resposta.getBytes("UTF-8"));
-                                } 
-                            }
+                        for (HashMap.Entry<String, String> entry : tabelaDNS.entrySet()){
+                            resposta += entry.getKey() + " -> " + entry.getValue() + "\n";
                         }
-                            catch (IOException e) {
-                        System.err.println("Erro na comunicação com o cliente: " + e.getMessage());}
-                        finally{
-                            clientesConectados.remove(cliente);
-                            try {
-                                cliente.close();
-                            } catch (IOException e) {
-                                System.err.println("Erro ao fechar o socket do cliente: " + e.getMessage());    
+                        resposta += "\n";
+
+                        //TODO jogar esse print pra depois do write
+                        System.out.println("Listagem enviada ao cliente.");
+                    }
+                    else if (mensagemRecebida.startsWith("GET|")){
+                        String nomeServidor = mensagemRecebida.substring(4).trim();
+                        String enderecoIP = tabelaDNS.get(nomeServidor);
+
+                        if (enderecoIP != null) resposta = "Endereço IP de " + nomeServidor + ": " + enderecoIP;
+                        else resposta = nomeServidor + " não encontrado.";
+
+                        //TODO jogar esse print pra depois do write
+                        System.out.println("Endereço de servidor enviado ao cliente.");
+                    }
+
+                    else if (mensagemRecebida.startsWith("SET|")){
+                        String[] partes = mensagemRecebida.split("\\|");
+                        if (partes.length == 3){
+                            String nomeServidorSet = partes[1].trim();
+                            String novoEnderecoIP = partes[2].trim();
+
+                            String ipAntigo = tabelaDNS.get(nomeServidorSet);
+
+                            if (ipAntigo == null) {
+                                //caso onde a resposta precisa ser enviada antes do loop reiniciar
+                                resposta = "Servidor " + nomeServidorSet + " não encontrado."; 
+                                
+                                // [CRIPTO] criptografia aqui
+
+                                byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
+                                DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, pacoteRecebido.getAddress(), pacoteRecebido.getPort());
+                                socket.send(pacoteResposta);
+                                continue;
                             }
+
+                            tabelaDNS.put(nomeServidorSet, novoEnderecoIP);
+                            resposta = "Endereço IP de " + nomeServidorSet + " atualizado para: " + novoEnderecoIP;
+                            resposta += "\n";
+
+                            //TODO criar um print dessa operação pra depois do write
+
+                            //TODO jogar essa notificação pra depois do write
+                            //método para notificar clientes conectados sobre atualização de IP
+                            notificarClientes(nomeServidorSet, ipAntigo, novoEnderecoIP);
+
+                        } else {
+                            resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
                         }
                     }
-                }).start();
+
+                    else if (mensagemRecebida.startsWith("QUIT")){
+                        resposta = "NOTIFY|Desconectando do servidor...\n";
+                        InetSocketAddress cliente = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
+                        clientesConectados.remove(cliente);
+                        
+                        //TODO criar um print dessa operação pra depois do write
+                        System.out.println("O cliente " + cliente.toString() + " desconectou.");
+                    }
+                    
+                    else {
+                        resposta = "Operação inválida.";
+                    }
+
+                    // [CRIPTO] criptografia aqui
+                    
+                    //TODO criar um seletor de prints pós write
+                    byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
+                    DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, pacoteRecebido.getAddress(), pacoteRecebido.getPort());
+                    socket.send(pacoteResposta);
+                } 
             }
         } catch (IOException e){
             System.err.println("Erro no servidor: " + e.getMessage());
         } finally {
-            if (servidorDNS != null) {
-                try {
-                    servidorDNS.close();
-                } catch (IOException e) {
-                    System.err.println("Erro ao fechar o servidor: " + e.getMessage());
-                }
+            if (!socket.isClosed()) {
+                socket.close();
             }
         }
     }
@@ -175,13 +154,13 @@ public class ServidorDNS {
     private void notificarClientes(String nomeServidor, String ipAntigo, String novoEnderecoIP){
         String notificacao = "NOTIFY|ALTERACAO DE IP|" + nomeServidor + "|" + ipAntigo + "->" + novoEnderecoIP;
         // Enviar notificação para todos os clientes conectados
-        for (Socket cliente : clientesConectados){
+        for (InetSocketAddress destino : clientesConectados){
             try {
-                OutputStream saida = cliente.getOutputStream();
-
                 // [CRIPTO] criptografia aqui
 
-                saida.write(notificacao.getBytes("UTF-8"));
+                byte[] dados = notificacao.getBytes(StandardCharsets.UTF_8);
+                DatagramPacket pacoteNotificacao = new DatagramPacket(dados, dados.length, destino.getAddress(), destino.getPort());
+                socket.send(pacoteNotificacao);
             } catch (IOException e) {
                 System.err.println("Erro ao notificar cliente: " + e.getMessage());
             }
