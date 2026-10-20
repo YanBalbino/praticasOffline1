@@ -20,9 +20,9 @@ public class ServidorDNS {
         tabelaDNS = new HashMap<String, String>();
         clientesConectados = new HashSet<InetSocketAddress>();
 
-        for (int i = 0; i < 10; i++) {
-            String nome = "servidor" + (i + 1);
-            String enderecoIP = "192.168.0." + (i + 1);
+        for (int i = 1; i <= 10; i++) {
+            String nome = "servidor" + (i);
+            String enderecoIP = "192.168.0." + (i * 10);
             tabelaDNS.put(nome, enderecoIP);
         }
 
