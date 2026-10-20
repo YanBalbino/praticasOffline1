@@ -16,15 +16,7 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-/**
- * Utilitário criptográfico para o Canal Seguro Salto a Salto no Anel P2P (RSA + AES + HMAC).
- * Garante:
- * 1. Troca de Chaves Assimétrica (RSA 2048 bits): encapsulamento das chaves de sessão (AES e HMAC)
- *    com a Chave Pública RSA do próximo nó do enlace.
- * 2. Confidencialidade Simétrica (AES-128): cifração e decifração da mensagem P2P em cada salto.
- * 3. Integridade e Autenticidade (HMAC-SHA256 + Assinatura RSA): cálculo do HMAC sobre o texto
- *    cifrado (Encrypt-then-MAC) e validação contra adulteração no canal.
- */
+
 public class CriptoUtils {
 
     private static final String ALGORITMO_AES = "AES";

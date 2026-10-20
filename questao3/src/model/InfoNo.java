@@ -6,10 +6,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Representa os metadados e a configuração de um nó (processo) na topologia em anel P2P.
- * Considere 6 processos: P0, P1, P2, P3, P4 e P5.
- */
 public class InfoNo {
     public static final int TOTAL_NOS = 6;
     public static final int PORTA_BASE = 8000;

@@ -290,11 +290,9 @@ public class Cliente {
 
             String reqCalculo = "CALC|" + operacao + "|" + num1 + "|" + num2;
 
-            String envelopeEnvio;
+            String envelopeEnvio = sessaoCalc.empacotarMensagem(reqCalculo);
             if (enviarHmacCorrompido) {
-                envelopeEnvio = sessaoCalc.empacotarMensagemComHmacCorrompido(reqCalculo);
-            } else {
-                envelopeEnvio = sessaoCalc.empacotarMensagem(reqCalculo);
+                envelopeEnvio = simularAdulteracaoEmTransito(envelopeEnvio);
             }
 
             escritorCalc.println(envelopeEnvio);
@@ -342,10 +340,27 @@ public class Cliente {
             SessaoSegura sessaoDir,
             String mensagemPlano,
             boolean corromperHmac) {
-        String envelope = corromperHmac
-                ? sessaoDir.empacotarMensagemComHmacCorrompido(mensagemPlano)
-                : sessaoDir.empacotarMensagem(mensagemPlano);
+        String envelope = sessaoDir.empacotarMensagem(mensagemPlano);
+        if (corromperHmac) {
+            envelope = simularAdulteracaoEmTransito(envelope);
+        }
         escritorDir.println(envelope);
+    }
+
+    /**
+     * Simula a corrupção/adulteração do pacote em trânsito na rede após o empacotamento legítimo.
+     * Como o payload cifrado é alterado depois que o envelope foi assinado, o HMAC recalculado
+     * pelo destinatário não baterá com o HMAC original assinado pelo emissor.
+     */
+    private String simularAdulteracaoEmTransito(String envelopeValido) {
+        String[] campos = envelopeValido.split("\\|");
+        if (campos.length == 7) {
+            campos[2] = campos[2] + "_ADULTERADO_EM_TRANSITO";
+            EnvelopeCriptografico.registrarLog("ALERTA", "[" + nomeCliente + " -> INTERFERÊNCIA NA REDE] "
+                    + "Pacote legítimo sofreu adulteração em trânsito (payload cifrado modificado após empacotamento)!");
+            return String.join("|", campos);
+        }
+        return envelopeValido;
     }
 
     private String lerEnvelopeDiretorio(BufferedReader leitorDir, SessaoSegura sessaoDir) throws IOException {

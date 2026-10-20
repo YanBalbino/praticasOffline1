@@ -37,7 +37,7 @@ Em todas as mensagens de requisição e resposta (incluindo `REGISTER`, `DISCOVE
 2. **[`src/seguranca/SessaoSegura.java`](src/seguranca/SessaoSegura.java)** *(Novo)*:
    - Implementa o protocolo de Handshake RSA (`realizarHandshakeComoCliente` e `realizarHandshakeComoServidor`) e mantém o estado criptográfico compartilhado da sessão (`chaveSessaoAES`, `chaveSessaoHMAC`, `parChavesRSALocal`, `chavePublicaRSARemota`) para uso bidirecional (requisição e resposta).
 3. **[`src/seguranca/EnvelopeCriptografico.java`](src/seguranca/EnvelopeCriptografico.java)**:
-   - Atualizado para cifrar `chaveAES` e `chaveHMAC` com a `PublicKey` RSA do destinatário em `criarEnvelope` / `criarEnvelopeComHmacCorrompido` e decifrá-las com a `PrivateKey` RSA do destinatário em `abrirEValidarEnvelope`.
+   - Atualizado para cifrar `chaveAES` e `chaveHMAC` com a `PublicKey` RSA do destinatário em `criarEnvelope` e decifrá-las com a `PrivateKey` RSA do destinatário em `abrirEValidarEnvelope`.
 4. **[`src/diretorio/ServidorDiretorio.java`](src/diretorio/ServidorDiretorio.java)**:
    - Realiza Handshake RSA por conexão via `SessaoSegura` e responde usando as chaves de sessão negociadas com o cliente/servidor;
    - Criptografa integralmente o health-check `PING`/`PONG` (`verificarServidorOnlineSeguro`);

@@ -15,16 +15,6 @@ import model.InfoNo;
 import model.MensagemP2P;
 import no.NoP2P;
 
-/**
- * Orquestrador automatizado para simular a topologia em anel P2P (P0, P1, P2, P3, P4 e P5)
- * com busca no sentido horário e camada de segurança com criptografia híbrida (RSA + AES + HMAC)
- * salto a salto sobre UDP.
- *
- * Casos de Teste:
- *   - Caso 1: Busca válida com criptografia salto a salto (Origem: P0 | Arquivo: arquivo35.ext | Fluxo: P0 -> P1 -> P2 -> P3)
- *   - Caso 2: Entrada inválida (Origem: P1 com arquivo99.ext e P4 com arquivoABC.ext -> validação prévia sem propagar pacotes)
- *   - Caso 3: Falha de integridade / Pacote adulterado (Origem: P4 enviando para P5 -> P5 detecta divergência de HMAC, descarta e interrompe repasse para P0)
- */
 public class SimuladorCasosTeste {
 
     private static final List<Process> PROCESSOS_ATIVOS = new ArrayList<Process>();

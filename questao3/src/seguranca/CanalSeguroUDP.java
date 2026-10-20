@@ -10,16 +10,6 @@ import java.security.PublicKey;
 
 import javax.crypto.SecretKey;
 
-/**
- * Gerencia o estabelecimento do Canal Seguro Salto a Salto sobre UDP entre dois nós do anel
- * (ex.: P0–P1, P1–P2, P2–P3, P3–P0, P4–P5).
- *
- * Fluxo em cada salto:
- * 1. O nó emissor solicita a Chave Pública RSA do nó destino via datagrama HANDSHAKE_REQ;
- * 2. O nó destino responde com HANDSHAKE_RESP contendo sua Chave Pública RSA (Base64);
- * 3. O nó emissor gera chaves simétricas efêmeras (AES + HMAC) exclusivas para este salto,
- *    encapsula ambas com a Chave Pública RSA do nó destino e cifra a mensagem com AES + HMAC.
- */
 public class CanalSeguroUDP {
 
     public static final String PREFIXO_HANDSHAKE_REQ = "HANDSHAKE_REQ|";
@@ -44,10 +34,6 @@ public class CanalSeguroUDP {
         }
     }
 
-    /**
-     * Realiza o Handshake RSA com o próximo nó do enlace UDP e constrói o Envelope Criptográfico
-     * (normal ou adulterado para o Caso 3).
-     */
     public static ResultadoEnvioSeguro estabelecerCanalEPrepararEnvelope(
             String nomeEmissor,
             KeyPair parChavesRSAEmissor,

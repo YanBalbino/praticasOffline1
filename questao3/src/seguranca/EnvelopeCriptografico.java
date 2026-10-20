@@ -76,9 +76,6 @@ public class EnvelopeCriptografico {
         return assinaturaDigitalRSA;
     }
 
-    /**
-     * Empacota uma mensagem com AES, HMAC-SHA256 e encapsulamento RSA das chaves de sessão para o próximo salto.
-     */
     public static String criarEnvelope(
             String mensagemPlano,
             SecretKey chaveAES,
@@ -108,9 +105,6 @@ public class EnvelopeCriptografico {
                 + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
     }
 
-    /**
-     * Simula um pacote adulterado no canal ou com HMAC inválido (Caso 3: P4 enviando para P5).
-     */
     public static String criarEnvelopeComFalhaIntegridade(
             String mensagemPlano,
             SecretKey chaveAES,
@@ -140,13 +134,6 @@ public class EnvelopeCriptografico {
                 + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
     }
 
-    /**
-     * Abre e valida o Envelope Criptográfico no nó receptor do salto:
-     * 1. Decifra as chaves AES e HMAC com a Chave Privada RSA do nó receptor;
-     * 2. Verifica a assinatura RSA e compara o HMAC recebido com o HMAC calculado localmente;
-     * 3. Se houver divergência (Caso 3), registra a falha no log e lança SecurityException;
-     * 4. Se válido, decifra o payload AES e retorna o EnvelopeCriptografico.
-     */
     public static EnvelopeCriptografico abrirEValidarEnvelope(
             String pacoteRecebido,
             String nomeDestinatario,

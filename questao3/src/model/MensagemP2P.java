@@ -3,11 +3,6 @@ package model;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Representa uma mensagem composta trocada via pacotes UDP entre os processos do anel P2P.
- * Formato de serialização:
- *   TIPO|ID_MENSAGEM|ID_ORIGEM|HOST_ORIGEM|PORTA_RESPOSTA|NOME_ARQUIVO|SENTIDO|ROTA|DETALHE
- */
 public class MensagemP2P {
 
     public static final String TIPO_SEARCH = "SEARCH";
@@ -26,7 +21,6 @@ public class MensagemP2P {
 
     public static final String MSG_ERRO_ENTRADA = "Erro na entrada de dados. Tente outra vez!";
 
-    // Aceita "arquivo1.ext" a "arquivo60.ext" (ou sem extensão, normalizando para .ext)
     private static final Pattern PADRAO_ARQUIVO = Pattern.compile("^arquivo([1-9][0-9]*)(?:\\.ext)?$", Pattern.CASE_INSENSITIVE);
 
     private final String tipo;
@@ -96,9 +90,6 @@ public class MensagemP2P {
         return detalhe;
     }
 
-    /**
-     * Cria uma cópia da mensagem atualizando a rota percorrida no anel.
-     */
     public MensagemP2P comNovaRota(String novaRota, String novoDetalhe) {
         return new MensagemP2P(
                 this.tipo,
@@ -113,9 +104,6 @@ public class MensagemP2P {
         );
     }
 
-    /**
-     * Serializa o objeto MensagemP2P para envio em DatagramPacket UDP.
-     */
     public String serializar() {
         String detalheSeguro = detalhe.replace("|", "/").replace("\n", "\\n");
         return tipo + "|"
@@ -129,9 +117,6 @@ public class MensagemP2P {
                 + detalheSeguro;
     }
 
-    /**
-     * Desserializa uma string recebida via UDP em um objeto MensagemP2P.
-     */
     public static MensagemP2P desserializar(String bruto) {
         if (bruto == null || bruto.trim().isEmpty()) {
             throw new IllegalArgumentException(MSG_ERRO_ENTRADA);
@@ -167,18 +152,10 @@ public class MensagemP2P {
         }
     }
 
-    /**
-     * Verifica se o nome de arquivo informado segue o padrão válido e pertence à faixa 1..60
-     * (ex.: arquivo1.ext a arquivo60.ext). Rejeita arquivo99.ext e arquivoABC.ext.
-     */
     public static boolean isNomeArquivoValido(String entrada) {
         return normalizarNomeArquivo(entrada) != null;
     }
 
-    /**
-     * Normaliza o nome do arquivo para o formato canônico "arquivoN.ext" (com 1 <= N <= 60).
-     * Retorna null se a entrada for inválida ou estiver fora da faixa do anel.
-     */
     public static String normalizarNomeArquivo(String entrada) {
         if (entrada == null || entrada.trim().isEmpty()) {
             return null;
@@ -198,9 +175,6 @@ public class MensagemP2P {
         }
     }
 
-    /**
-     * Verifica e normaliza o sentido de roteamento no anel (exclusivamente "HORARIO").
-     */
     public static String normalizarSentido(String entrada) {
         if (entrada == null || entrada.trim().isEmpty()) {
             return SENTIDO_HORARIO;

@@ -26,14 +26,6 @@ import seguranca.CanalSeguroUDP;
 import seguranca.CriptoUtils;
 import seguranca.EnvelopeCriptografico;
 
-/**
- * Nó P2P (Cliente/Servidor Multithread com UDP e Criptografia Híbrida Salto a Salto)
- * em uma topologia em anel (P0 a P5) com roteamento exclusivamente no sentido horário.
- *
- * Cada enlace (ex.: P0–P1, P1–P2, P2–P3, P3–P0) estabelece canal seguro com troca de chaves
- * AES/HMAC via RSA, encriptando, decifrando, verificando integridade (HMAC) e re-encriptando
- * salto a salto.
- */
 public class NoP2P {
 
     private static final int TAMANHO_BUFFER_UDP = 16384;
@@ -120,13 +112,13 @@ public class NoP2P {
     }
 
     private void processarPacoteRecebido(String payloadBruto, InetAddress enderecoRemetente, int portaRemetente) {
-        // 1. Atendimento ao Handshake RSA salto a salto (envio da Chave Pública RSA do nó atual)
+        // atendimento ao Handshake RSA salto a salto (envio da Chave Pública RSA do nó atual)
         if (payloadBruto.startsWith(CanalSeguroUDP.PREFIXO_HANDSHAKE_REQ)) {
             tratarHandshakeRSA(payloadBruto, enderecoRemetente, portaRemetente);
             return;
         }
 
-        // 2. Abertura e validação do Envelope Criptográfico Híbrido (AES + HMAC + RSA)
+        // abertura e validação do Envelope Criptográfico Híbrido (AES + HMAC + RSA)
         String payloadDecifrado = payloadBruto;
         if (payloadBruto.startsWith("ENVELOPE|")) {
             try {
@@ -139,7 +131,6 @@ public class NoP2P {
                 registrarLogSeguranca("Canal seguro validado no enlace " + envelope.getNomeEmissor() + "–" + infoAtual.getNome()
                         + " | AES decifrado e integridade HMAC verificada (" + CriptoUtils.resumirBase64(envelope.getHashHmacValido()) + ")");
             } catch (SecurityException se) {
-                // Caso 3: Falha de integridade / Pacote adulterado -> Registra no log, descarta pacote e interrompe repasse
                 registrarLogFalhaSeguranca("FALHA DE AUTENTICAÇÃO/INTEGRIDADE detectada em " + infoAtual.getNome()
                         + ": " + se.getMessage() + " -> Pacote descartado e repasse interrompido!");
                 return;
@@ -243,7 +234,6 @@ public class NoP2P {
             return;
         }
 
-        // Roteamento exclusivamente no sentido HORÁRIO (sempre para o sucessor)
         InfoNo proximoNo = sucessor;
 
         if (proximoNo.getId() == msg.getIdOrigem()) {
@@ -349,19 +339,12 @@ public class NoP2P {
         pararNo();
     }
 
-    /**
-     * Inicia uma busca no anel sempre no sentido HORÁRIO (sucessor).
-     */
     public MensagemP2P iniciarBuscaNoAnel(String entradaArquivo) {
         return iniciarBuscaNoAnel(entradaArquivo, false);
     }
 
-    /**
-     * Inicia uma busca no anel no sentido HORÁRIO, permitindo simular adulteração de pacote/HMAC (Caso 3).
-     * Caso 2: Valida a entrada ANTES de iniciar criptografia ou abrir conexões de rede.
-     */
+
     public MensagemP2P iniciarBuscaNoAnel(String entradaArquivo, boolean simularFalhaIntegridade) {
-        // Caso 2: Validação estrita antes de qualquer operação criptográfica ou de rede
         if (!MensagemP2P.isNomeArquivoValido(entradaArquivo)) {
             System.out.println(MensagemP2P.MSG_ERRO_ENTRADA);
             Color.erro("[" + infoAtual.getNome() + "] Entrada inválida ('" + entradaArquivo
@@ -404,7 +387,6 @@ public class NoP2P {
             );
         }
 
-        // Busca percorre exclusivamente no sentido horário (sucessor)
         InfoNo primeiroSalto = sucessor;
 
         MensagemP2P msgBusca = new MensagemP2P(
@@ -463,10 +445,6 @@ public class NoP2P {
         }
     }
 
-    /**
-     * Estabelece o canal seguro salto a salto (Handshake RSA + chave de sessão AES/HMAC) e envia o
-     * Envelope Criptográfico via UDP ao próximo nó.
-     */
     private void enviarMensagemSeguraUDP(
             MensagemP2P mensagem,
             String hostDestino,
@@ -564,9 +542,6 @@ public class NoP2P {
         System.out.println(Color.CIANO_BRILHANTE + "---------------------------------------------------------" + Color.RESET);
     }
 
-    /**
-     * Menu interativo no console para operar qualquer nó (P0 a P5) com busca exclusivamente no sentido horário.
-     */
     private void rodarMenuInterativo() {
         @SuppressWarnings("resource")
         Scanner teclado = new Scanner(System.in);

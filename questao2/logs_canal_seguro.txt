@@ -509,3 +509,11 @@
 [2026-10-19 09:48:27] [ERRO] [S2 <- FALHA DE INTEGRIDADE/AUTENTICIDADE de Cliente 3] HMAC extraído da assinatura RSA (XUgQGcxyRXPH...rhuQU=) difere do HMAC calculado (UE2klyM6L2BH...bF8qU=). Execução rejeitada!
 [2026-10-19 09:48:27] [INFO] [S2 -> ENVIO SEGURO] AES_Cipher=KPAV4I1RSv9I...Dy/2A= | HMAC=EmfMCozX4zlF...5GAWE= | AssinaturaRSA(PrivKey)=Zzg2YcgLcLra...UHyg== | ChaveAES_RSA(PubKeyDest)=UWwVI0t2AQth...XfRA==
 [2026-10-19 09:48:27] [SUCESSO] [Cliente 3 <- CANAL SEGURO VALIDADO de S2] Chaves Sessão RSA(PrivKey) OK | Assinatura RSA(PubKey) OK | HMAC OK (EmfMCozX4zlF...5GAWE=) | AES Decifrado OK
+[2026-10-20 10:14:07] [SEGURANCA] [HANDSHAKE RSA: ServidorDiretorio <- S1] Chaves de sessão AES e HMAC decifradas com PrivKey RSA de ServidorDiretorio. Sessão híbrida estabelecida!
+[2026-10-20 10:14:07] [SEGURANCA] [HANDSHAKE RSA: S1 -> ServidorDiretorio] Chaves de sessão AES e HMAC geradas e cifradas com PubKey RSA de ServidorDiretorio (AES_RSA=DVdyJgwaj9OK...iMXw==, HMAC_RSA=TtkAss8ZgEQn...atcg==)
+[2026-10-20 10:15:02] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=bkRCZkx1/AvJ...dcAfE= | HMAC=XohIrA9FrOkl...lR7Y4= | AssinaturaRSA(PrivKey)=Aq0HvBiZpMMR...uW+w== | ChaveAES_RSA(PubKeyDest)=esERRincT20V...B8Ow==
+[2026-10-20 10:15:02] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Chaves Sessão RSA(PrivKey) OK | Assinatura RSA(PubKey) OK | HMAC OK (XohIrA9FrOkl...lR7Y4=) | AES Decifrado OK
+[2026-10-20 10:15:02] [INFO] [ServidorDiretorio -> ENVIO SEGURO] AES_Cipher=rvCbhDDwDBCH...3zbNQ= | HMAC=EeFA2fmvOVOq...ONX7Y= | AssinaturaRSA(PrivKey)=XxnyvK6ionlS...oGHg== | ChaveAES_RSA(PubKeyDest)=aRBC+yegirNX...HI4w==
+[2026-10-20 10:19:40] [SUCESSO] [S1 <- CANAL SEGURO VALIDADO de ServidorDiretorio] Chaves Sessão RSA(PrivKey) OK | Assinatura RSA(PubKey) OK | HMAC OK (EeFA2fmvOVOq...ONX7Y=) | AES Decifrado OK
+[2026-10-20 10:20:19] [INFO] [S1 -> ENVIO SEGURO] AES_Cipher=t/Rmu7j3p5dU...tmWw== | HMAC=WncffZEgIybH...FesyA= | AssinaturaRSA(PrivKey)=gNzLsN6uG5FT...K9Gw== | ChaveAES_RSA(PubKeyDest)=bAIbJfkfl4EV...nuFw==
+[2026-10-20 10:20:22] [SUCESSO] [ServidorDiretorio <- CANAL SEGURO VALIDADO de S1] Chaves Sessão RSA(PrivKey) OK | Assinatura RSA(PubKey) OK | HMAC OK (WncffZEgIybH...FesyA=) | AES Decifrado OK

@@ -118,35 +118,6 @@ public class EnvelopeCriptografico {
                 + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
     }
 
-    public static String criarEnvelopeComHmacCorrompido(
-            String mensagemPlano,
-            SecretKey chaveAES,
-            SecretKey chaveHMAC,
-            KeyPair parChavesRSAEmissor,
-            PublicKey chavePublicaDestinatario,
-            String nomeEmissor) {
-
-        String msgCifradaB64 = CriptoUtils.cifrarAES(mensagemPlano, chaveAES);
-
-        // Adultera o HMAC antes de assinar para simular ataque/corrupção de integridade (Caso 3)
-        String hashHmacAdulterado = CriptoUtils.calcularHMAC(msgCifradaB64 + "_ADULTERADO", chaveHMAC);
-        String assinaturaRsaCorrompida = CriptoUtils.criptografarHmacComChavePrivadaRSA(
-                hashHmacAdulterado,
-                parChavesRSAEmissor.getPrivate()
-        );
-
-        String chaveAesCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveAES, chavePublicaDestinatario);
-        String chaveHmacCifradaRsaB64 = CriptoUtils.cifrarChaveSimetricaComPublicaRSA(chaveHMAC, chavePublicaDestinatario);
-        String chavePublicaEmissorB64 = CriptoUtils.chavePublicaParaBase64(parChavesRSAEmissor.getPublic());
-
-        registrarLog("ALERTA", "[" + nomeEmissor + " -> ENVIO COM HMAC ADULTERADO] "
-                + "AES_Cipher=" + CriptoUtils.resumirBase64(msgCifradaB64)
-                + " | HMAC_CORROMPIDO=" + CriptoUtils.resumirBase64(hashHmacAdulterado));
-
-        return "ENVELOPE|" + nomeEmissor + "|" + msgCifradaB64 + "|" + assinaturaRsaCorrompida + "|"
-                + chaveAesCifradaRsaB64 + "|" + chaveHmacCifradaRsaB64 + "|" + chavePublicaEmissorB64;
-    }
-
     /**
      * Abre e valida o Envelope Criptográfico no Destinatário:
      * 1. Decifra as chaves simétricas (AES e HMAC) usando a CHAVE PRIVADA RSA do destinatário.
