@@ -210,7 +210,7 @@ public class Cliente {
         confirmarSessao(sessao, confirmacao, chaveHMAC);
     }
 
-    // 
+    // confirma que o servidor recebeu a sessão corretamente e que o HMAC bate com o esperado
     private void confirmarSessao(String sessao, String confirmacao, byte[] chaveHMAC)
             throws GeneralSecurityException, IOException {
         if (!confirmacao.startsWith("SESSION_OK|")) {
