@@ -40,9 +40,9 @@ public class Cliente {
             SecretKey chaveAES = gerarChaveAES();
             byte[] chaveHMAC = gerarChaveHMAC();
 
-            // Troca inicial de chaves públicas sem assinatura por enquanto.
-            // Só a thread principal recebe pacotes até o fim dessa troca.
-            iniciarSessao(enderecoServidor, rsa, chaveAES, chaveHMAC);
+            // Públicas trocadas sem validação de identidade, conforme escopo do trabalho.
+            // Só a thread principal recebe pacotes até o fim do handshake.
+            PublicKey chavePublicaServidor = iniciarSessao(enderecoServidor, rsa, chaveAES, chaveHMAC);
 
             // blocking queue para armazenar respostas do servidor
             // e mostrá-las na ordem correta na tela do cliente
@@ -60,11 +60,12 @@ public class Cliente {
 
                             String envelope = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
                             try {
-                                // HMAC é verificado antes de decifrar com AES.
-                                String mensagemRecebida = verificarEDecifrar(envelope, aes, chaveAES, chaveHMAC);
+                                // Verifica assinatura do HMAC antes de decifrar com AES.
+                                String mensagemRecebida = verificarEDecifrar(
+                                        envelope, aes, chaveAES, chaveHMAC, rsa, chavePublicaServidor);
 
                                 if (mensagemRecebida == null) {
-                                    System.err.println("[ERROR] HMAC inválido. Mensagem ignorada.");
+                                    System.err.println("[ERROR] Assinatura/HMAC inválido. Mensagem ignorada.");
                                     continue;
                                 }
 
@@ -129,7 +130,7 @@ public class Cliente {
                 if (operacao == null) continue;
 
                 // Constrói mensagem completa antes do envio
-                String mensagemSegura = cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC);
+                String mensagemSegura = cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC, rsa);
                 byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
                 socket.send(pacoteResposta);
@@ -173,7 +174,7 @@ public class Cliente {
     }
 
     // handshake inicial para conversa segura com servidor
-    private void iniciarSessao(InetAddress enderecoServidor, ImplRSA rsa, SecretKey chaveAES, byte[] chaveHMAC) throws IOException, GeneralSecurityException {
+    private PublicKey iniciarSessao(InetAddress enderecoServidor, ImplRSA rsa, SecretKey chaveAES, byte[] chaveHMAC) throws IOException, GeneralSecurityException {
         
         // HELLO troca a chave pública RSA deste cliente
         String chavePublicaCliente = Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
@@ -202,43 +203,52 @@ public class Cliente {
 
         socket.send(new DatagramPacket(dadosSessao, dadosSessao.length, enderecoServidor, PORTA_DNS));
 
-        // Servidor confirma que recuperou HMAC verificando o texto exato do SESSION
+        // SESSION_OK contém assinatura RSA do HMAC sobre o texto exato de SESSION.
         buffer = new byte[4096];
         pacoteRecebido = new DatagramPacket(buffer, buffer.length);
         socket.receive(pacoteRecebido);
         String confirmacao = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
-        confirmarSessao(sessao, confirmacao, chaveHMAC);
+        confirmarSessao(sessao, confirmacao, chaveHMAC, rsa, chavePublicaServidor);
+        return chavePublicaServidor;
     }
 
-    // confirma que o servidor recebeu a sessão corretamente e que o HMAC bate com o esperado
-    private void confirmarSessao(String sessao, String confirmacao, byte[] chaveHMAC)
-            throws GeneralSecurityException, IOException {
+    // Confirma posse da chave HMAC e da privada RSA correspondente à pública recebida.
+    private void confirmarSessao(String sessao, String confirmacao, byte[] chaveHMAC,
+            ImplRSA rsa, PublicKey chavePublicaServidor) throws GeneralSecurityException, IOException {
         if (!confirmacao.startsWith("SESSION_OK|")) {
             throw new IOException("Servidor não confirmou a sessão.");
         }
-        byte[] macRecebido = Base64.getDecoder().decode(confirmacao.substring(11));
-        if (!ImplHMAC.verificarMAC(sessao.getBytes(StandardCharsets.UTF_8), chaveHMAC, macRecebido)) {
-            throw new IOException("HMAC da confirmação da sessão inválido.");
+        byte[] assinaturaRecebida = Base64.getDecoder().decode(confirmacao.substring(11));
+        byte[] macEsperado = ImplHMAC.gerarMAC(sessao.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, chavePublicaServidor)) {
+            throw new IOException("Assinatura/HMAC da confirmação da sessão inválida.");
         }
     }
 
-    private String cifrarEAutenticar(String mensagem, ImplAES256 aes, SecretKey chaveAES, byte[] chaveHMAC) throws GeneralSecurityException {
+    private String cifrarEAutenticar(String mensagem, ImplAES256 aes, SecretKey chaveAES,
+            byte[] chaveHMAC, ImplRSA rsa) throws GeneralSecurityException {
         byte[] cifrado = aes.cifrar(mensagem, chaveAES);
         String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
         byte[] mac = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), chaveHMAC);
-        return conteudo + "|" + Base64.getEncoder().encodeToString(mac);
+        // Apenas a assinatura viaja: receptor recalcula HMAC com sua chave da sessão.
+        byte[] assinatura = rsa.assinar(mac);
+        return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
     }
 
-    private String verificarEDecifrar(String envelope, ImplAES256 aes, SecretKey chaveAES, byte[] chaveHMAC) throws GeneralSecurityException {
+    private String verificarEDecifrar(String envelope, ImplAES256 aes, SecretKey chaveAES,
+            byte[] chaveHMAC, ImplRSA rsa, PublicKey chavePublicaServidor) throws GeneralSecurityException {
         String[] partes = envelope.split("\\|", -1);
         if (partes.length != 3 || !"DATA".equals(partes[0])) {
             throw new IllegalArgumentException("Formato de envelope inválido.");
         }
 
         String conteudo = partes[0] + "|" + partes[1];
-        byte[] macRecebido = Base64.getDecoder().decode(partes[2]);
-        if (!ImplHMAC.verificarMAC(conteudo.getBytes(StandardCharsets.UTF_8), chaveHMAC, macRecebido)) {
-            return null;
+        byte[] macEsperado = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        byte[] assinaturaRecebida = Base64.getDecoder().decode(partes[2]);
+        try {
+            if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, chavePublicaServidor)) return null;
+        } catch (java.security.SignatureException e) {
+            return null; // Assinatura malformada também é pacote inválido, não fim da thread.
         }
         byte[] cifrado = Base64.getDecoder().decode(partes[1]);
         return new String(aes.decifrar(cifrado, chaveAES), StandardCharsets.UTF_8);
