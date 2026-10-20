@@ -65,10 +65,10 @@ public class ServidorDNS {
                             continue;
                         }
 
-                        // verificar HMAC antes de qualquer comando
+                        // Verificar assinatura do HMAC antes de qualquer comando.
                         String comando = verificarEDecifrar(mensagemRecebida, sessao);
                         if (comando == null) {
-                            System.err.println("[ERROR] HMAC inválido de " + origem + ". Mensagem ignorada.");
+                            System.err.println("[ERROR] Assinatura/HMAC inválido de " + origem + ". Mensagem ignorada.");
                             continue;
                         }
                         System.out.println("Mensagem de " + origem + ": " + comando);
@@ -120,9 +120,11 @@ public class ServidorDNS {
         }
         SecretKey chaveAES = new SecretKeySpec(bytesAES, "AES");
 
-        // HMAC do texto SESSION exato confirma ao cliente que recebemos chave compartilhada.
+        // Assinamos o HMAC do SESSION com a privada RSA do servidor.
+        // Cliente recalcula o HMAC e verifica com a pública recebida no HELLO.
         byte[] macConfirmacao = ImplHMAC.gerarMAC(mensagem.getBytes(StandardCharsets.UTF_8), bytesHMAC);
-        String confirmacao = "SESSION_OK|" + Base64.getEncoder().encodeToString(macConfirmacao);
+        byte[] assinatura = rsa.assinar(macConfirmacao);
+        String confirmacao = "SESSION_OK|" + Base64.getEncoder().encodeToString(assinatura);
         byte[] dados = confirmacao.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
         sessao.confirmar(chaveAES, bytesHMAC);
@@ -136,9 +138,13 @@ public class ServidorDNS {
             throw new IllegalArgumentException("Formato de envelope inválido.");
         }
         String conteudo = partes[0] + "|" + partes[1];
-        byte[] macRecebido = Base64.getDecoder().decode(partes[2]);
-        if (!ImplHMAC.verificarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC(), macRecebido)) {
-            return null;
+        byte[] macEsperado = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC());
+        byte[] assinaturaRecebida = Base64.getDecoder().decode(partes[2]);
+        try {
+            // A pública guardada nesta sessão é a do cliente que enviou o pacote.
+            if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, sessao.getChavePublica())) return null;
+        } catch (java.security.SignatureException e) {
+            return null; // assinatura malformada: não processar comando nem encerrar servidor
         }
         byte[] cifrado = Base64.getDecoder().decode(partes[1]);
         return new String(aes.decifrar(cifrado, sessao.getChaveAES()), StandardCharsets.UTF_8);
@@ -149,7 +155,9 @@ public class ServidorDNS {
         byte[] cifrado = aes.cifrar(mensagem, sessao.getChaveAES());
         String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
         byte[] mac = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC());
-        return conteudo + "|" + Base64.getEncoder().encodeToString(mac);
+        // Uma assinatura do servidor para resposta ou notificação; HMAC não viaja separadamente.
+        byte[] assinatura = rsa.assinar(mac);
+        return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
     }
 
     private void processarComando(String comando, InetSocketAddress origem, SessaoCliente sessao)
