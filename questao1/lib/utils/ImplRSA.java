@@ -64,4 +64,22 @@ public class ImplRSA {
 
         return bytesMsgDecifrada;
     }
+
+    // Assina os bytes do HMAC com a chave privada desta entidade
+    // Signature calcula SHA-256 internamente
+    public byte[] assinar(byte[] mac) throws GeneralSecurityException {
+        Signature assinatura = Signature.getInstance("SHA256withRSA");
+        assinatura.initSign(chavePrivada);
+        assinatura.update(mac);
+        return assinatura.sign();
+    }
+
+    // A chave pública precisa pertencer ao emissor da mensagem recebida.
+    public boolean verificarAssinatura(byte[] mac, byte[] assinaturaRecebida, PublicKey chavePublicaEmissor)
+            throws GeneralSecurityException {
+        Signature verificador = Signature.getInstance("SHA256withRSA");
+        verificador.initVerify(chavePublicaEmissor);
+        verificador.update(mac);
+        return verificador.verify(assinaturaRecebida);
+    }
 }
