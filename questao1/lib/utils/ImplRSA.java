@@ -4,12 +4,11 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.Base64;
 
 public class ImplRSA {
 
+    // mantidas para entidade poder guardar suas chaves pós geração
     private PublicKey chavePublica;
     private PrivateKey chavePrivada;
 
@@ -19,6 +18,10 @@ public class ImplRSA {
 
     public ImplRSA() throws NoSuchAlgorithmException {
         gerarChaves();
+    }
+
+    public PublicKey getChavePublica() {
+        return chavePublica;
     }
 
     private void gerarChaves() throws NoSuchAlgorithmException {
@@ -34,7 +37,7 @@ public class ImplRSA {
         chavePrivada = kp.getPrivate();
     }
 
-    public byte[] cifrar(String msg) throws NoSuchAlgorithmException,
+    public byte[] cifrar(byte[] msg, PublicKey chavePublica) throws NoSuchAlgorithmException,
             NoSuchPaddingException,
             InvalidKeyException,
             IllegalBlockSizeException,
@@ -43,24 +46,21 @@ public class ImplRSA {
         Cipher cifrador = Cipher.getInstance(PADDING);
         cifrador.init(Cipher.ENCRYPT_MODE, chavePublica);
 
-        // Garante o uso de UTF-8 para evitar problemas de Charset
-        byte[] bytesMsgCifrada = cifrador.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+        byte[] bytesMsgCifrada = cifrador.doFinal(msg);
 
         return bytesMsgCifrada;
     }
 
-    public byte[] decifrar(String msgCifradaBase64) throws NoSuchAlgorithmException,
+    public byte[] decifrar(byte[] msgCifrada) throws NoSuchAlgorithmException,
             NoSuchPaddingException,
             InvalidKeyException,
             IllegalBlockSizeException,
             BadPaddingException {
 
-        byte[] bytesMsgCifrada = Base64.getDecoder().decode(msgCifradaBase64);
-
         Cipher decifrador = Cipher.getInstance(PADDING);
         decifrador.init(Cipher.DECRYPT_MODE, chavePrivada);
 
-        byte[] bytesMsgDecifrada = decifrador.doFinal(bytesMsgCifrada);
+        byte[] bytesMsgDecifrada = decifrador.doFinal(msgCifrada);
 
         return bytesMsgDecifrada;
     }

@@ -41,14 +41,12 @@ public class ImplAES256 {
         }
     }
 
-    public byte[] decifrar(String textoCifrado, SecretKey chave) {
+    public byte[] decifrar(byte[] textoCifrado, SecretKey chave) {
 
         try {
-
-            byte[] dados = Base64.getDecoder().decode(textoCifrado);
             
             // se tamanho do texto não for múltiplo de 16 bytes + 16 bytes do IV, descarta
-            if (dados.length < 32 || (dados.length - 16) % 16 != 0) {
+            if (textoCifrado.length < 32 || (textoCifrado.length - 16) % 16 != 0) {
                 throw new IllegalArgumentException(
                         "Tamanho inválido para texto cifrado.");
             }
@@ -57,14 +55,14 @@ public class ImplAES256 {
              * Os primeiros 16 bytes são o IV.
              */
             byte[] iv = new byte[16];
-            System.arraycopy(dados, 0, iv, 0, iv.length);
+            System.arraycopy(textoCifrado, 0, iv, 0, iv.length);
             IvParameterSpec parametros = new IvParameterSpec(iv);
 
             /*
              * O restante é o texto cifrado.
              */
-            byte[] dadosCifrados = new byte[dados.length - iv.length];
-            System.arraycopy(dados, iv.length, dadosCifrados, 0, dadosCifrados.length);
+            byte[] dadosCifrados = new byte[textoCifrado.length - iv.length];
+            System.arraycopy(textoCifrado, iv.length, dadosCifrados, 0, dadosCifrados.length);
 
             Cipher decriptador = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
