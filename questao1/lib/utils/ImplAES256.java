@@ -10,7 +10,7 @@ import java.util.Base64;
 
 public class ImplAES256 {
 
-    public String cifrar(String textoAberto, SecretKey chave) {
+    public byte[] cifrar(String textoAberto, SecretKey chave) {
 
         try {
 
@@ -34,14 +34,14 @@ public class ImplAES256 {
             System.arraycopy(iv, 0, resultado, 0, iv.length);
             System.arraycopy(dadosCifrados, 0, resultado, iv.length, dadosCifrados.length);
 
-            return Base64.getEncoder().encodeToString(resultado);
+            return resultado;
 
         } catch (GeneralSecurityException e) {
             throw new RuntimeException("Erro ao cifrar.", e);
         }
     }
 
-    public String decifrar(String textoCifrado, SecretKey chave) {
+    public byte[] decifrar(String textoCifrado, SecretKey chave) {
 
         try {
 
@@ -72,7 +72,7 @@ public class ImplAES256 {
 
             byte[] dadosDecifrados = decriptador.doFinal(dadosCifrados);
 
-            return new String(dadosDecifrados, StandardCharsets.UTF_8);
+            return dadosDecifrados;
 
         } catch (GeneralSecurityException e) {
             throw new RuntimeException("Erro ao decifrar.", e);
