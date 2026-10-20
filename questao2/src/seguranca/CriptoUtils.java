@@ -16,19 +16,6 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-/**
- * Utilitário criptográfico para o Canal Seguro e Envelope Criptográfico Híbrido (RSA + AES + HMAC).
- * Garante os 4 pilares da segurança na comunicação:
- * 1. Confidencialidade na Troca de Chaves (Assimétrica - RSA): As chaves de sessão (AES e HMAC)
- *    são cifradas com a Chave Pública RSA do destinatário e decifradas exclusivamente com a
- *    Chave Privada RSA do destinatário.
- * 2. Confidencialidade da Mensagem (Simétrica - AES): O payload da mensagem é cifrado com a
- *    chave simétrica AES compartilhada na sessão.
- * 3. Integridade (Hash de Autenticação - HMAC-SHA256): O hash HMAC é calculado sobre o payload
- *    cifrado (padrão Encrypt-then-MAC) usando a chave HMAC da sessão.
- * 4. Autenticidade e Irretratabilidade (Assinatura Digital - RSA): O hash HMAC é assinado
- *    (cifrado) com a Chave Privada RSA do emissor e verificado com a Chave Pública RSA do emissor.
- */
 public class CriptoUtils {
 
     private static final String ALGORITMO_AES = "AES";
@@ -65,11 +52,7 @@ public class CriptoUtils {
         } catch (Exception e) {
             throw new RuntimeException("Erro ao gerar par de chaves RSA: " + e.getMessage(), e);
         }
-    }
 
-    // =========================================================================
-    // CRIPTOGRAFIA SIMÉTRICA (AES) - CONFIDENCIALIDADE DO PAYLOAD
-    // =========================================================================
 
     public static String cifrarAES(String mensagem, SecretKey chaveSimetrica) {
         try {
@@ -94,14 +77,6 @@ public class CriptoUtils {
         }
     }
 
-    // =========================================================================
-    // CRIPTOGRAFIA ASSIMÉTRICA (RSA) - ENCAPSULAMENTO DE CHAVES DE SESSÃO
-    // =========================================================================
-
-    /**
-     * Cifra uma chave simétrica (AES ou HMAC) usando a Chave Pública RSA do destinatário.
-     * Garante que apenas o detentor da Chave Privada RSA correspondente recupere a chave de sessão.
-     */
     public static String cifrarChaveSimetricaComPublicaRSA(SecretKey chaveSimetrica, PublicKey chavePublicaDestinatario) {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMACAO_RSA);
@@ -113,9 +88,6 @@ public class CriptoUtils {
         }
     }
 
-    /**
-     * Decifra a chave de sessão AES usando a Chave Privada RSA do destinatário.
-     */
     public static SecretKey decifrarChaveAESComPrivadaRSA(String chaveCifradaB64, PrivateKey chavePrivadaDestinatario) {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMACAO_RSA);
@@ -127,9 +99,6 @@ public class CriptoUtils {
         }
     }
 
-    /**
-     * Decifra a chave de sessão HMAC usando a Chave Privada RSA do destinatário.
-     */
     public static SecretKey decifrarChaveHMACComPrivadaRSA(String chaveCifradaB64, PrivateKey chavePrivadaDestinatario) {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMACAO_RSA);
@@ -141,9 +110,6 @@ public class CriptoUtils {
         }
     }
 
-    // =========================================================================
-    // INTEGRIDADE (HMAC-SHA256) E ASSINATURA DIGITAL (RSA PRIVADO -> PÚBLICO)
-    // =========================================================================
 
     public static String calcularHMAC(String mensagemCifradaB64, SecretKey chaveHMAC) {
         try {
@@ -183,16 +149,11 @@ public class CriptoUtils {
         if (hashExtraidoDaAssinatura == null || hashCalculadoLocalmente == null) {
             return false;
         }
-        // Comparação em tempo constante contra ataques de timing
         return MessageDigest.isEqual(
                 hashExtraidoDaAssinatura.getBytes(StandardCharsets.UTF_8),
                 hashCalculadoLocalmente.getBytes(StandardCharsets.UTF_8)
         );
     }
-
-    // =========================================================================
-    // SERIALIZAÇÃO BASE64 DE CHAVES PÚBLICAS E UTILITÁRIOS
-    // =========================================================================
 
     public static String chavePublicaParaBase64(PublicKey chavePublica) {
         return Base64.getEncoder().encodeToString(chavePublica.getEncoded());

@@ -76,12 +76,6 @@ public class EnvelopeCriptografico {
         return assinaturaDigitalRSA;
     }
 
-    /**
-     * Cria o Envelope Criptográfico Híbrido completo:
-     * - Payload cifrado com AES (chave da sessão);
-     * - HMAC calculado sobre o texto cifrado e assinado com a Chave Privada RSA do Emissor;
-     * - Chaves simétricas (AES e HMAC) cifradas com a Chave Pública RSA do Destinatário (nunca em texto claro).
-     */
     public static String criarEnvelope(
             String mensagemPlano,
             SecretKey chaveAES,
