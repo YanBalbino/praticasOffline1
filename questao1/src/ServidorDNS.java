@@ -4,169 +4,234 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import utils.ImplAES256;
+import utils.ImplHMAC;
+import utils.ImplRSA;
+import utils.SessaoCliente;
 
 public class ServidorDNS {
-    static HashMap<String, String> tabelaDNS;
-    static Set<InetSocketAddress> clientesConectados; // guardar IP e porta dos clientes conectados
+    private final int PORTA_DNS = 5959;
+    private final HashMap<String, String> tabelaDNS = new HashMap<>();
 
-    final int PORTA_DNS = 5959;
-    InetAddress host;
-    DatagramSocket socket = null;
+    // IP + porta UDP identificam por onde responder e qual chave usar para cada cliente
+    private final Map<InetSocketAddress, SessaoCliente> sessoes = new HashMap<>();
+    private DatagramSocket socket;
+
+    private ImplRSA rsa;
+    private final ImplAES256 aes = new ImplAES256();
 
     public ServidorDNS() {
-        tabelaDNS = new HashMap<String, String>();
-        clientesConectados = new HashSet<InetSocketAddress>();
-
         for (int i = 1; i <= 10; i++) {
-            String nome = "servidor" + (i);
+            String nome = "servidor" + i;
             String enderecoIP = "192.168.0." + (i * 10);
             tabelaDNS.put(nome, enderecoIP);
         }
-
         rodar();
     }
 
     private void rodar() {
         try {
+            // Um par RSA para o servidor inteiro, não um novo par para cada cliente.
+            rsa = new ImplRSA();
             socket = new DatagramSocket(PORTA_DNS);
-            host = InetAddress.getLocalHost();
-
+            InetAddress host = InetAddress.getLocalHost();
             System.out.println("Servidor DNS rodando em: " + host.getHostAddress() + ":" + PORTA_DNS + "...");
-            
-            while (true){
-                byte[] buffer = new byte[2048];
+
+            while (true) {
+                byte[] buffer = new byte[4096];
                 DatagramPacket pacoteRecebido = new DatagramPacket(buffer, buffer.length);
+                try {
+                    socket.receive(pacoteRecebido);
+                    InetSocketAddress origem = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
+                    String mensagemRecebida = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
 
-                // aguarda mensagem do cliente
-                socket.receive(pacoteRecebido);
-
-                String mensagemRecebida = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
-
-                // se houve mensagem do cliente
-                if (!mensagemRecebida.isEmpty()){
-                    
-                    // [CRIPTO] decriptografia aqui
-
-                    // mensagem inicial para registrar cliente conectado
-                    if (mensagemRecebida.startsWith("HELLO")){
-                        System.out.println("Novo cliente: " + mensagemRecebida);
-                        InetSocketAddress novoCliente = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
-                        clientesConectados.add(novoCliente);
-                        continue; // não precisa enviar resposta para o cliente nesse caso
-                    }
-                    
-                    System.out.println("Mensagem recebida: " + mensagemRecebida);
-
-                    String resposta = "";
-
-                    // opções de operações solicitadas pelo cliente
-                    if (mensagemRecebida.startsWith("LIST")){
-                        resposta = "Servidores:\n";
-
-                        for (HashMap.Entry<String, String> entry : tabelaDNS.entrySet()){
-                            resposta += entry.getKey() + " -> " + entry.getValue() + "\n";
+                    if (mensagemRecebida.startsWith("HELLO|")) {
+                        tratarHello(mensagemRecebida, origem);
+                    } else if (mensagemRecebida.startsWith("SESSION|")) {
+                        tratarSessao(mensagemRecebida, origem);
+                    } else {
+                        SessaoCliente sessao = sessoes.get(origem);
+                        if (sessao == null || !sessao.isPronta()) {
+                            System.err.println("Cliente sem sessão pronta: " + origem);
+                            continue;
                         }
-                        resposta += "\n";
 
-                        //TODO jogar esse print pra depois do write
-                        System.out.println("Listagem enviada ao cliente.");
-                    }
-                    else if (mensagemRecebida.startsWith("GET|")){
-                        String nomeServidor = mensagemRecebida.substring(4).trim();
-                        String enderecoIP = tabelaDNS.get(nomeServidor);
-
-                        if (enderecoIP != null) resposta = "Endereço IP de " + nomeServidor + ": " + enderecoIP;
-                        else resposta = nomeServidor + " não encontrado.";
-
-                        //TODO jogar esse print pra depois do write
-                        System.out.println("Endereço de servidor enviado ao cliente.");
-                    }
-
-                    else if (mensagemRecebida.startsWith("SET|")){
-                        String[] partes = mensagemRecebida.split("\\|");
-                        if (partes.length == 3){
-                            String nomeServidorSet = partes[1].trim();
-                            String novoEnderecoIP = partes[2].trim();
-
-                            String ipAntigo = tabelaDNS.get(nomeServidorSet);
-
-                            if (ipAntigo == null) {
-                                //caso onde a resposta precisa ser enviada antes do loop reiniciar
-                                resposta = "Servidor " + nomeServidorSet + " não encontrado."; 
-                                
-                                // [CRIPTO] criptografia aqui
-
-                                byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
-                                DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, pacoteRecebido.getAddress(), pacoteRecebido.getPort());
-                                socket.send(pacoteResposta);
-                                continue;
-                            }
-
-                            tabelaDNS.put(nomeServidorSet, novoEnderecoIP);
-                            resposta = "Endereço IP de " + nomeServidorSet + " atualizado para: " + novoEnderecoIP;
-                            resposta += "\n";
-
-                            //TODO criar um print dessa operação pra depois do write
-
-                            //TODO jogar essa notificação pra depois do write
-                            //método para notificar clientes conectados sobre atualização de IP
-                            notificarClientes(nomeServidorSet, ipAntigo, novoEnderecoIP);
-
-                        } else {
-                            resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
+                        // verificar HMAC antes de qualquer comando
+                        String comando = verificarEDecifrar(mensagemRecebida, sessao);
+                        if (comando == null) {
+                            System.err.println("[ERROR] HMAC inválido de " + origem + ". Mensagem ignorada.");
+                            continue;
                         }
+                        System.out.println("Mensagem de " + origem + ": " + comando);
+                        processarComando(comando, origem, sessao);
                     }
-
-                    else if (mensagemRecebida.startsWith("QUIT")){
-                        resposta = "NOTIFY|Desconectando do servidor...\n";
-                        InetSocketAddress cliente = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
-                        clientesConectados.remove(cliente);
-                        
-                        //TODO criar um print dessa operação pra depois do write
-                        System.out.println("O cliente " + cliente.toString() + " desconectou.");
-                    }
-                    
-                    else {
-                        resposta = "Operação inválida.";
-                    }
-
-                    // [CRIPTO] criptografia aqui
-                    
-                    //TODO criar um seletor de prints pós write
-                    byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
-                    DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, pacoteRecebido.getAddress(), pacoteRecebido.getPort());
-                    socket.send(pacoteResposta);
-                } 
+                } catch (IOException | GeneralSecurityException | RuntimeException e) {
+                    // Datagrama inválido não deve derrubar o servidor nem outros clientes.
+                    System.err.println("Erro ao processar pacote: " + e.getMessage());
+                    if (socket.isClosed()) break;
+                }
             }
-        } catch (IOException e){
+        } catch (IOException | GeneralSecurityException e) {
             System.err.println("Erro no servidor: " + e.getMessage());
         } finally {
-            if (!socket.isClosed()) {
-                socket.close();
-            }
+            if (socket != null) socket.close();
         }
     }
 
-    private void notificarClientes(String nomeServidor, String ipAntigo, String novoEnderecoIP){
+    private void tratarHello(String mensagem, InetSocketAddress origem)
+            throws IOException, GeneralSecurityException {
+        String[] partes = mensagem.split("\\|", -1);
+        if (partes.length != 2) throw new IllegalArgumentException("HELLO inválido.");
+
+        // Troca de públicas sem assinatura/autenticação, conforme escopo do trabalho.
+        byte[] dadosPublicos = Base64.getDecoder().decode(partes[1]);
+        PublicKey publicaCliente = KeyFactory.getInstance("RSA")
+                .generatePublic(new X509EncodedKeySpec(dadosPublicos));
+        sessoes.put(origem, new SessaoCliente(publicaCliente));
+        System.out.println("HELLO de " + origem + ": chave pública recebida.");
+
+        String resposta = "PUBLIC_KEY|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
+        byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        System.out.println("Chave pública do servidor enviada a " + origem + ".");
+    }
+
+    private void tratarSessao(String mensagem, InetSocketAddress origem)
+            throws IOException, GeneralSecurityException {
+        SessaoCliente sessao = sessoes.get(origem);
+        if (sessao == null) throw new IllegalArgumentException("SESSION sem HELLO de " + origem);
+
+        String[] partes = mensagem.split("\\|", -1);
+        if (partes.length != 3) throw new IllegalArgumentException("SESSION inválida.");
+        // Cliente envia as duas chaves separadas; somente privada RSA do servidor as recupera.
+        byte[] bytesAES = rsa.decifrar(Base64.getDecoder().decode(partes[1]));
+        byte[] bytesHMAC = rsa.decifrar(Base64.getDecoder().decode(partes[2]));
+        if (bytesAES.length != 32 || bytesHMAC.length != 32) {
+            throw new IllegalArgumentException("Tamanho de chave de sessão inválido.");
+        }
+        SecretKey chaveAES = new SecretKeySpec(bytesAES, "AES");
+
+        // HMAC do texto SESSION exato confirma ao cliente que recebemos chave compartilhada.
+        byte[] macConfirmacao = ImplHMAC.gerarMAC(mensagem.getBytes(StandardCharsets.UTF_8), bytesHMAC);
+        String confirmacao = "SESSION_OK|" + Base64.getEncoder().encodeToString(macConfirmacao);
+        byte[] dados = confirmacao.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        sessao.confirmar(chaveAES, bytesHMAC);
+        System.out.println("Sessão AES/HMAC confirmada com " + origem + ".");
+    }
+
+    private String verificarEDecifrar(String envelope, SessaoCliente sessao)
+            throws GeneralSecurityException {
+        String[] partes = envelope.split("\\|", -1);
+        if (partes.length != 3 || !"DATA".equals(partes[0])) {
+            throw new IllegalArgumentException("Formato de envelope inválido.");
+        }
+        String conteudo = partes[0] + "|" + partes[1];
+        byte[] macRecebido = Base64.getDecoder().decode(partes[2]);
+        if (!ImplHMAC.verificarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC(), macRecebido)) {
+            return null;
+        }
+        byte[] cifrado = Base64.getDecoder().decode(partes[1]);
+        return new String(aes.decifrar(cifrado, sessao.getChaveAES()), StandardCharsets.UTF_8);
+    }
+
+    private String cifrarEAutenticar(String mensagem, SessaoCliente sessao)
+            throws GeneralSecurityException {
+        byte[] cifrado = aes.cifrar(mensagem, sessao.getChaveAES());
+        String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
+        byte[] mac = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC());
+        return conteudo + "|" + Base64.getEncoder().encodeToString(mac);
+    }
+
+    private void processarComando(String comando, InetSocketAddress origem, SessaoCliente sessao)
+            throws IOException, GeneralSecurityException {
+        String resposta;
+        String nomeAlterado = null;
+        String ipAntigo = null;
+        String novoIP = null;
+
+        if ("LIST".equals(comando)) {
+            StringBuilder lista = new StringBuilder("Servidores:\n");
+            for (Map.Entry<String, String> entry : tabelaDNS.entrySet()) {
+                lista.append(entry.getKey()).append(" -> ").append(entry.getValue()).append('\n');
+            }
+            resposta = lista.append('\n').toString();
+        } else if (comando.startsWith("GET|")) {
+            String nomeServidor = comando.substring(4).trim();
+            String enderecoIP = tabelaDNS.get(nomeServidor);
+            resposta = enderecoIP == null
+                    ? nomeServidor + " não encontrado."
+                    : "Endereço IP de " + nomeServidor + ": " + enderecoIP;
+        } else if (comando.startsWith("SET|")) {
+            String[] partes = comando.split("\\|", -1);
+            if (partes.length != 3) {
+                resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
+            } else {
+                String nomeServidor = partes[1].trim();
+                String enderecoIP = partes[2].trim();
+                String antigo = tabelaDNS.get(nomeServidor);
+                if (antigo == null) {
+                    resposta = "Servidor " + nomeServidor + " não encontrado.";
+                } else {
+                    // Ainda falta autenticar identidade de registrador: isRegistrador só controla menu do cliente.
+                    tabelaDNS.put(nomeServidor, enderecoIP);
+                    resposta = "Endereço IP de " + nomeServidor + " atualizado para: " + enderecoIP + "\n";
+                    nomeAlterado = nomeServidor;
+                    ipAntigo = antigo;
+                    novoIP = enderecoIP;
+                }
+            }
+        } else if ("QUIT".equals(comando)) {
+            sessoes.remove(origem);
+            System.out.println("O cliente " + origem + " desconectou.");
+            return; // cliente já fechou seu socket; não espera resposta de despedida
+        } else {
+            resposta = "Operação inválida.";
+        }
+
+        // Enviar resposta ANTES das notificações do SET.
+        String mensagemSegura = cifrarEAutenticar(resposta, sessao);
+        byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        System.out.println("Resposta enviada a " + origem + ".");
+
+        if (nomeAlterado != null) {
+            System.out.println("IP de " + nomeAlterado + " alterado: " + ipAntigo + " -> " + novoIP);
+            notificarClientes(nomeAlterado, ipAntigo, novoIP);
+        }
+    }
+
+    private void notificarClientes(String nomeServidor, String ipAntigo, String novoEnderecoIP) {
         String notificacao = "NOTIFY|ALTERACAO DE IP|" + nomeServidor + "|" + ipAntigo + "->" + novoEnderecoIP;
-        // Enviar notificação para todos os clientes conectados
-        for (InetSocketAddress destino : clientesConectados){
+        int enviados = 0;
+        // Cada cliente recebe notificação cifrada e autenticada com suas próprias chaves.
+        for (Map.Entry<InetSocketAddress, SessaoCliente> entry : sessoes.entrySet()) {
+            SessaoCliente sessao = entry.getValue();
+            if (!sessao.isPronta()) continue;
+            
+            InetSocketAddress destino = entry.getKey();
             try {
-                // [CRIPTO] criptografia aqui
-
-                byte[] dados = notificacao.getBytes(StandardCharsets.UTF_8);
-                DatagramPacket pacoteNotificacao = new DatagramPacket(dados, dados.length, destino.getAddress(), destino.getPort());
-                socket.send(pacoteNotificacao);
-            } catch (IOException e) {
-                System.err.println("Erro ao notificar cliente: " + e.getMessage());
+                String mensagemSegura = cifrarEAutenticar(notificacao, sessao);
+                byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
+                socket.send(new DatagramPacket(dados, dados.length, destino.getAddress(), destino.getPort()));
+                enviados++;
+            } catch (IOException | GeneralSecurityException | RuntimeException e) {
+                System.err.println("Erro ao notificar " + destino + ": " + e.getMessage());
             }
         }
+        System.out.println("Notificação enviada a " + enviados + " cliente(s).");
     }
 
-    public static void main(String[] args){
+    public static void main(String[] args) {
         new ServidorDNS();
     }
 }
