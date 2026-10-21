@@ -152,7 +152,7 @@ public class ServidorDNS {
         byte[] macEsperado = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC());
         byte[] assinaturaRecebida = Base64.getDecoder().decode(partes[2]);
         try {
-            // A pública guardada nesta sessão é a do cliente que enviou o pacote.
+            // A pública guardada nesta sessão é a do cliente que enviou o pacote
             if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, sessao.getChavePublica())) return null;
         } catch (java.security.SignatureException e) {
             return null; // assinatura malformada: não processar comando nem encerrar servidor
