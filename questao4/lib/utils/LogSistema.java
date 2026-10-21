@@ -20,8 +20,8 @@ public class LogSistema {
         this.arquivo = arquivo.toAbsolutePath().normalize();
     }
 
-    // Registrar só amostras de envelopes cifrados ou dados operacionais; nunca chaves privadas/AES/HMAC.
-    // Sincroniza threads locais e usa FileLock para coordenar processos distintos.
+    // Registrar só amostras de envelopes cifrados ou dados operacionais; nunca chaves privadas/AES/HMAC
+    // Sincroniza threads locais e usa FileLock para coordenar processos distintos
     public void registrar(String emissor, String destinatario, String evento, String conteudo) {
         String amostra = conteudo == null ? "-" : conteudo.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ');
         if (amostra.length() > LIMITE_AMOSTRA) {
