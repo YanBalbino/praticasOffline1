@@ -83,11 +83,15 @@ public class GeoDNS {
     private void receberHello(String mensagem, InetSocketAddress origem, DatagramSocket socket)
             throws IOException, GeneralSecurityException {
         String[] partes = mensagem.split("\\|", -1);
-        if (partes.length != 2) throw new IllegalArgumentException("HELLO inválido.");
+        if (partes.length != 2) {
+            throw new IllegalArgumentException("HELLO inválido.");
+        }
 
-        PublicKey publicaCliente = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(partes[1])));
+        byte[] publicaClienteBytes = Base64.getDecoder().decode(partes[1]);
+        PublicKey publicaCliente = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(publicaClienteBytes));
         sessoes.put(origem, new SessaoSegura(publicaCliente));
-        String resposta = "PUBLIC_KEY|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
+        String publicaGeoDNSBase64 = Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
+        String resposta = "PUBLIC_KEY|" + publicaGeoDNSBase64;
         byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
 
@@ -96,10 +100,14 @@ public class GeoDNS {
 
     private void receberSessao(String mensagem, InetSocketAddress origem, DatagramSocket socket) throws IOException, GeneralSecurityException {
         SessaoSegura sessao = sessoes.get(origem);
-        if (sessao == null) throw new IllegalArgumentException("SESSION sem HELLO.");
+        if (sessao == null) {
+            throw new IllegalArgumentException("SESSION sem HELLO.");
+        }
 
         String[] partes = mensagem.split("\\|", -1);
-        if (partes.length != 3) throw new IllegalArgumentException("SESSION inválida.");
+        if (partes.length != 3) {
+            throw new IllegalArgumentException("SESSION inválida.");
+        }
 
         byte[] bytesAES = rsa.decifrar(Base64.getDecoder().decode(partes[1]));
         byte[] bytesHMAC = rsa.decifrar(Base64.getDecoder().decode(partes[2]));
@@ -108,7 +116,8 @@ public class GeoDNS {
         }
         SecretKey chaveAES = new SecretKeySpec(bytesAES, "AES");
         byte[] mac = ImplHMAC.gerarMAC(mensagem.getBytes(StandardCharsets.UTF_8), bytesHMAC);
-        String resposta = "SESSION_OK|" + Base64.getEncoder().encodeToString(rsa.assinar(mac));
+        String macAssinadoBase64 = Base64.getEncoder().encodeToString(rsa.assinar(mac));
+        String resposta = "SESSION_OK|" + macAssinadoBase64;
         byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
         sessao.confirmar(chaveAES, bytesHMAC);

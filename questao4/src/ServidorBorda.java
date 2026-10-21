@@ -148,8 +148,7 @@ public class ServidorBorda {
         }
 
         byte[] publicaClienteBytes = Base64.getDecoder().decode(partes[1]);
-        PublicKey publicaCliente = KeyFactory.getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(publicaClienteBytes));
+        PublicKey publicaCliente = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(publicaClienteBytes));
         SessaoSegura sessao = new SessaoSegura(publicaCliente);
         String publicaBordaBase64 = Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         String resposta = "PUBLIC_KEY|" + publicaBordaBase64;
@@ -298,7 +297,7 @@ public class ServidorBorda {
         buffer = new byte[4096];
         bytesLidos = entrada.read(buffer);
         String confirmacao = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
-        
+
         if (!confirmacao.startsWith("SESSION_OK|")) {
             throw new IOException("Origem não confirmou a sessão.");
         } 
