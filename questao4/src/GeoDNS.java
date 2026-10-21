@@ -21,17 +21,23 @@ public class GeoDNS {
         DatagramSocket socket = null;
         try {
             socket = new DatagramSocket(PORTA_GEODNS);
+            // SEGURANÇA: gerar par RSA do GeoDNS e manter sessões AES/HMAC por cliente UDP
+            // (endereço + porta), como no ServidorDNS da questão 1.
             System.out.println("GeoDNS rodando na porta " + PORTA_GEODNS + "...");
 
             while (true) {
                 byte[] buffer = new byte[4096];
                 DatagramPacket pedido = new DatagramPacket(buffer, buffer.length);
                 socket.receive(pedido);
+                // SEGURANÇA: tratar HELLO/SESSION RSA; para LOCATE, validar HMAC e
+                // assinatura da sessão antes de decifrar/processar. Descartar pacote inválido.
 
                 String mensagem = new String(pedido.getData(), 0, pedido.getLength(), StandardCharsets.UTF_8);
                 System.out.println("Consulta de " + pedido.getAddress().getHostAddress() + ": " + mensagem);
 
                 String resposta = localizarBorda(mensagem);
+                // SEGURANÇA: cifrar LOCATION/[ERROR] com AES; assinar RSA o HMAC do cifrado
+                // usando chaves da sessão desse cliente antes de montar o datagrama.
                 byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, pedido.getAddress(), pedido.getPort());
                 

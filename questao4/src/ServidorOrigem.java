@@ -26,6 +26,7 @@ public class ServidorOrigem {
         ServerSocket servidorOrigem = null;
         try {
             servidorOrigem = new ServerSocket(PORTA_ORIGEM);
+            // SEGURANÇA: gerar par RSA da Origem e negociar sessão AES/HMAC por Borda TCP.
 
             System.out.println("Servidor de origem rodando na porta " + PORTA_ORIGEM + "...");
 
@@ -58,6 +59,7 @@ public class ServidorOrigem {
             // busca novas conexões
             while (true){
                 Socket servidorBorda = servidorOrigem.accept();
+                // SEGURANÇA: handshake RSA antes de atender GET desta Borda.
 
                 try {
                     System.out.println("Servidor de borda conectado: " + servidorBorda.getInetAddress().getHostAddress());
@@ -65,6 +67,8 @@ public class ServidorOrigem {
                     // como Edge só manda uma solicitação por vez, não precisa de thread nem laço 
                     InputStream entrada = servidorBorda.getInputStream();
                     OutputStream saida = servidorBorda.getOutputStream();
+                    // SEGURANÇA: toda resposta DATA/[ERROR] deve usar AES, HMAC do cifrado
+                    // e assinatura RSA da Origem, com chaves desta sessão.
 
                     // recebe mensagens de um cliente
                     byte[] buffer = new byte[4096];
@@ -76,6 +80,8 @@ public class ServidorOrigem {
                     }
 
                     if (bytesLidos > 0){
+                        // SEGURANÇA: validar assinatura/HMAC da Borda antes de decifrar
+                        // e interpretar GET; rejeitar mensagem adulterada.
                         String mensagemRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
                         if (!mensagemRecebida.startsWith("GET /")){
                             System.out.println("Mensagem inválida recebida: " + mensagemRecebida);
@@ -133,16 +139,20 @@ public class ServidorOrigem {
         Socket borda = null;
         try {
             borda = new Socket("localhost", PORTA_INVALIDACAO_BORDA);
+            // SEGURANÇA: handshake RSA/AES/HMAC nesta conexão de invalidação.
 
             OutputStream saida = borda.getOutputStream();
             InputStream entrada = borda.getInputStream();
 
             String comando = "INVALIDATE /" + nomeArquivo;
+            // SEGURANÇA: cifrar INVALIDATE com AES e assinar RSA o HMAC do cifrado.
            saida.write(comando.getBytes(StandardCharsets.UTF_8));
 
             byte[] buffer = new byte[4096];
             int bytesLidos = entrada.read(buffer);
 
+            // SEGURANÇA: validar HMAC/assinatura da Borda e decifrar INVALIDATED
+            // antes de registrar sucesso da invalidação.
             String resposta = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8).trim();
 
             if (("INVALIDATED /" + nomeArquivo).equals(resposta)) {

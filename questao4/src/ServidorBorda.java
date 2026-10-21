@@ -33,6 +33,7 @@ public class ServidorBorda {
         ServerSocket servidorBorda = null;
         try {
             servidorBorda = new ServerSocket(PORTA_BORDA);
+            // SEGURANÇA: gerar par RSA da Borda; negociar sessão AES/HMAC por conexão TCP.
 
             System.out.println("Servidor de borda rodando na porta " + PORTA_BORDA + "...");
 
@@ -46,6 +47,7 @@ public class ServidorBorda {
             // busca novas conexões
             while (true){
                 Socket cliente = servidorBorda.accept();
+                // SEGURANÇA: handshake RSA com Cliente antes de aceitar GET.
 
                 try {
                     System.out.println("Cliente conectado: " + cliente.getInetAddress().getHostAddress());
@@ -53,6 +55,8 @@ public class ServidorBorda {
                     // como cliente só manda uma solicitação por vez, não precisa de thread nem laço 
                     InputStream entrada = cliente.getInputStream();
                     OutputStream saida = cliente.getOutputStream();
+                    // SEGURANÇA: todas as respostas nesta conexão (HIT, MISS, DATA, [ERROR])
+                    // devem sair cifradas com AES e HMAC do cifrado assinado pela RSA da Borda.
 
                     // recebe mensagens de um cliente
                     byte[] buffer = new byte[4096];
@@ -64,6 +68,8 @@ public class ServidorBorda {
                     }
 
                     if (bytesLidos > 0){
+                        // SEGURANÇA: validar assinatura/HMAC do Cliente antes de decifrar
+                        // e consultar/alterar cache; rejeitar envelope inválido.
                         String mensagemRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
                         if (!mensagemRecebida.startsWith("GET /")){
                             System.out.println("Mensagem inválida recebida: " + mensagemRecebida);
@@ -115,9 +121,11 @@ public class ServidorBorda {
         ServerSocket servidorInvalidacao = null;
         try {
             servidorInvalidacao = new ServerSocket(PORTA_INVALIDACAO);
+            // SEGURANÇA: esta porta também exige handshake RSA/AES/HMAC com Origem.
             System.out.println("Borda escutando invalidações na porta " + PORTA_INVALIDACAO + "...");
             while (true) {
                 Socket origem = servidorInvalidacao.accept();
+                // SEGURANÇA: vincular sessão à pública RSA da Origem antes de INVALIDATE.
                 try {
                     InputStream entrada = origem.getInputStream();
                     OutputStream saida = origem.getOutputStream();
@@ -126,6 +134,8 @@ public class ServidorBorda {
                     int bytesLidos = entrada.read(buffer);
                     // se bytesLidos == -1, a conexão foi fechada pelo cliente, então tratamos como uma string vazia
                     // se não, lemos a string normalment
+                    // SEGURANÇA: validar assinatura/HMAC e decifrar ANTES de cache.remove;
+                    // falha encerra conexão sem modificar cache.
                     String comando = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
 
                     if (!comando.startsWith("INVALIDATE /")) {
@@ -141,6 +151,7 @@ public class ServidorBorda {
                     String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4);
                     cache.remove(idArquivo);
                     System.out.println("Cache invalidado: " + nomeArquivo);
+                    // SEGURANÇA: cifrar e autenticar também confirmação INVALIDATED.
                     saida.write(("INVALIDATED /" + nomeArquivo + "\n").getBytes(StandardCharsets.UTF_8));
                 } catch (IOException e) {
                     System.out.println("Erro ao receber invalidação: " + e.getMessage());
@@ -188,12 +199,14 @@ public class ServidorBorda {
         Socket servidorOrigem = null;
         try {
             servidorOrigem = new Socket("localhost", PORTA_ORIGEM);
+            // SEGURANÇA: handshake RSA/AES/HMAC próprio da conexão Borda -> Origem.
             // socket TCP para comunicação com origem
 
             OutputStream saidaOrigem = servidorOrigem.getOutputStream();
             InputStream entradaOrigem = servidorOrigem.getInputStream();
 
             String mensagemParaOrigem = "GET /arquivo" + idArquivo + ".ext";
+            // SEGURANÇA: cifrar GET e assinar RSA o HMAC do cifrado.
             saidaOrigem.write(mensagemParaOrigem.getBytes("UTF-8"));
 
             // recebe a resposta do servidor de origem
@@ -201,6 +214,8 @@ public class ServidorBorda {
             int bytesLidosOrigem = entradaOrigem.read(bufferOrigem);
 
             if (bytesLidosOrigem > 0){
+                // SEGURANÇA: validar HMAC/assinatura da Origem ANTES de decifrar,
+                // armazenar DATA no cache ou repassar resposta ao Cliente.
                 String respostaOrigem = new String(bufferOrigem, 0, bytesLidosOrigem, StandardCharsets.UTF_8).trim();
                 if (!respostaOrigem.equals("DATA /arquivo" + idArquivo + ".ext")) {
                     String erro = respostaOrigem.startsWith("[ERROR]") ? respostaOrigem : "[ERROR] Resposta inválida da origem";

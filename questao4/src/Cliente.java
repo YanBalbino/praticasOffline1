@@ -53,14 +53,18 @@ public class Cliente {
         DatagramSocket socket = null;
         try {
             socket = new DatagramSocket();
+            // SEGURANÇA: antes do LOCATE, HELLO/SESSION RSA com GeoDNS neste socket UDP;
+            // trocar apenas públicas RSA e chaves simétricas AES/HMAC cifradas, nunca privada RSA.
             socket.setSoTimeout(3000);
             byte[] dados = "LOCATE".getBytes(StandardCharsets.UTF_8);
             InetAddress destino = InetAddress.getByName("localhost");
+            // SEGURANÇA: cifrar LOCATE com AES, HMAC do cifrado e assinatura RSA do HMAC.
             socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
 
             byte[] buffer = new byte[4096];
             DatagramPacket resposta = new DatagramPacket(buffer, buffer.length);
             socket.receive(resposta);
+            // SEGURANÇA: validar HMAC/assinatura do GeoDNS antes de decifrar LOCATION.
             String mensagem = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
             if (!mensagem.startsWith("LOCATION /")) {
                 System.out.println(mensagem);
@@ -91,7 +95,9 @@ public class Cliente {
         Socket borda = null;
         try {
             borda = new Socket(ipBorda, portaBorda);
+            // SEGURANÇA: handshake RSA/AES/HMAC com esta Borda antes do GET.
             byte[] pedido = ("GET /" + nomeArquivo).getBytes(StandardCharsets.UTF_8);
+            // SEGURANÇA: enviar GET cifrado com AES e HMAC assinado pela RSA do Cliente.
             borda.getOutputStream().write(pedido);
 
             InputStream entrada = borda.getInputStream();
@@ -102,6 +108,8 @@ public class Cliente {
                 resposta += new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
                 bytesLidos = entrada.read(buffer);
             }
+            // SEGURANÇA: validar assinatura/HMAC e decifrar cada HIT, MISS, DATA ou [ERROR]
+            // antes de interpretar/exibir; rejeitar resposta adulterada.
             System.out.println(resposta.trim()); // exibe a resposta do servidor de borda
         } catch (IOException e) {
             System.out.println("[ERROR] Falha no GET: " + e.getMessage());
