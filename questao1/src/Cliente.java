@@ -129,6 +129,11 @@ public class Cliente {
                     case "3":
                         resposta = "QUIT";
                         break;
+                    case "4":
+                        System.out.println("Qual o servidor? (GET com HMAC corrompido)");
+                        String nomeServidorHmacCorrompido = teclado.nextLine();
+                        resposta = "GET|" + nomeServidorHmacCorrompido;
+                        break;
                     default:
                         System.out.println("[ERROR] Operação inválida. Tente novamente.");
                         operacao = null;
@@ -138,16 +143,29 @@ public class Cliente {
                 if (operacao == null) continue;
 
                 // Constrói mensagem completa antes do envio
-                String mensagemSegura = cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC, rsa);
+                String mensagemSegura = "4".equals(operacao)
+                        ? cifrarEAutenticarComHMACCorrompido(resposta, aes, chaveAES, chaveHMAC, rsa)
+                        : cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC, rsa);
                 byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
                 socket.send(pacoteResposta);
                 String tipo = resposta.split("\\|", 2)[0];
-                LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO " + tipo, mensagemSegura);
+                String evento = "4".equals(operacao)
+                        ? "UDP ENVIO " + tipo + " HMAC CORROMPIDO"
+                        : "UDP ENVIO " + tipo;
+                String conteudoLog = "4".equals(operacao)
+                        ? "Resumo HMAC corrompido | " + mensagemSegura
+                        : mensagemSegura;
+                LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", evento, conteudoLog);
 
                 if ("QUIT".equals(resposta)) {
                     socket.close();
                     return;
+                }
+
+                if ("4".equals(operacao)) {
+                    System.out.println("GET enviado com HMAC corrompido. DNS deve descartar o pacote.");
+                    continue;
                 }
 
                 // usa uma blocking queue pra esperar a resposta do servidor
@@ -252,6 +270,19 @@ public class Cliente {
         return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
     }
 
+    private String cifrarEAutenticarComHMACCorrompido(String mensagem, ImplAES256 aes,
+            SecretKey chaveAES, byte[] chaveHMAC, ImplRSA rsa) throws GeneralSecurityException {
+        byte[] cifrado = aes.cifrar(mensagem, chaveAES);
+        String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
+        // Gera resumo deliberadamente errado. A assinatura continua válida para esse
+        // resumo, mas DNS calcula HMAC sobre conteudo e rejeita antes de decifrar.
+        String textoHmacCorrompido = "Resumo HMAC corrompido";
+        byte[] mac = ImplHMAC.gerarMAC(
+                textoHmacCorrompido.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        byte[] assinatura = rsa.assinar(mac);
+        return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
+    }
+
     private String verificarEDecifrar(String envelope, ImplAES256 aes, SecretKey chaveAES,
             byte[] chaveHMAC, ImplRSA rsa, PublicKey chavePublicaServidor) throws GeneralSecurityException {
         String[] partes = envelope.split("\\|", -1);
@@ -277,12 +308,13 @@ public class Cliente {
                 "0 - LIST (listar servidores registrados no DNS)\n" +
                 "1 - GET (obter endereço de servidor por nome)\n" +
                 "2 - SET (definir endereço de servidor por nome)\n" +
-                "3 - QUIT (encerrar conexão)");
+                "3 - QUIT (encerrar conexão)\n" +
+                "4 - GET com HMAC corrompido (testar integridade)");
         System.out.println("Selecione uma operação: ");
     }
 
     public static void main(String[] args) {
-        new Cliente(true);
-        //new Cliente(false);
+        //new Cliente(true);
+        new Cliente(false);
     }
 }
