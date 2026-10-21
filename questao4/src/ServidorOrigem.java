@@ -92,7 +92,7 @@ public class ServidorOrigem {
                     }
 
                     String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
-                    // Validar antes de decifrar e consultar arquivos; falha fecha apenas esta conexão.
+                    // Validar antes de decifrar e consultar arquivos; falha fecha conexão
                     String comando = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),
                             sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
                     System.out.println("HMAC da Borda validado: " + comando);

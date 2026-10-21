@@ -188,8 +188,8 @@ public class Cliente {
         SecretKey chaveAES = gerador.generateKey();
         byte[] chaveHMAC = new byte[32];
         new SecureRandom().nextBytes(chaveHMAC);
-        byte[] chaveAESCifrada = rsa.cifrar(chaveAES.getEncoded(), publicaBorda);
-        byte[] chaveHMACCifrada = rsa.cifrar(chaveHMAC, publicaBorda);
+        String chaveAESCifrada = Base64.getEncoder().encodeToString(rsa.cifrar(chaveAES.getEncoded(), publicaBorda));
+        String chaveHMACCifrada = Base64.getEncoder().encodeToString(rsa.cifrar(chaveHMAC, publicaBorda));
 
         String session = "SESSION|" + chaveAESCifrada + "|" + chaveHMACCifrada;
         saida.write(session.getBytes(StandardCharsets.UTF_8));
