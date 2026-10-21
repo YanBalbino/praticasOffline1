@@ -1,0 +1,20 @@
+Cliente -> Router
+LOCATE /<Edge>
+Router -> Cliente
+LOCATION /<ip:porta>
+
+Cliente -> Edge
+GET /arquivoXXXX.ext
+Edge -> Cliente
+HIT /arquivoXXXX.ext
+MISS -> DATA /arquivoXXXX.ext
+
+Edge -> Origem
+GET /arquivoXXXX.ext
+
+Origem -> Edge
+DATA /arquivoXXXX.ext
+INVALIDATE /arquivoXXXX.ext
+
+Erros gerais:
+[ERROR] <mensagem>
