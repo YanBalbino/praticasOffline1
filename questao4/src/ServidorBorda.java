@@ -69,7 +69,7 @@ public class ServidorBorda {
                     // como cliente só manda uma solicitação por vez, não precisa de thread nem laço 
                     InputStream entrada = cliente.getInputStream();
                     OutputStream saida = cliente.getOutputStream();
-                    SessaoSegura sessao = iniciarSessao(entrada, saida);
+                    SessaoSegura sessao = iniciarSessao(entrada, saida, "Cliente");
 
                     // recebe mensagens de um cliente
                     byte[] buffer = new byte[4096];
@@ -135,8 +135,8 @@ public class ServidorBorda {
         }
     }
 
-    // Mesmo HELLO/PUBLIC_KEY/SESSION/SESSION_OK do GeoDNS, agora no TCP do Cliente
-    private SessaoSegura iniciarSessao(InputStream entrada, OutputStream saida)
+    // Mesmo HELLO/PUBLIC_KEY/SESSION/SESSION_OK para conexões TCP recebidas
+    private SessaoSegura iniciarSessao(InputStream entrada, OutputStream saida, String nomeRemoto)
             throws IOException, GeneralSecurityException {
         byte[] buffer = new byte[4096];
         int bytesLidos = entrada.read(buffer);
@@ -172,10 +172,11 @@ public class ServidorBorda {
 
         SecretKey chaveAES = new SecretKeySpec(bytesAES, "AES");
         byte[] mac = ImplHMAC.gerarMAC(session.getBytes(StandardCharsets.UTF_8), bytesHMAC);
-        resposta = "SESSION_OK|" + Base64.getEncoder().encodeToString(rsa.assinar(mac));
+        String macAssinadoBase64 = Base64.getEncoder().encodeToString(rsa.assinar(mac));
+        resposta = "SESSION_OK|" + macAssinadoBase64;
         saida.write(resposta.getBytes(StandardCharsets.UTF_8));
         sessao.confirmar(chaveAES, bytesHMAC);
-        System.out.println("Sessão AES/HMAC confirmada com Cliente.");
+        System.out.println("Sessão AES/HMAC confirmada com " + nomeRemoto + ".");
         return sessao;
     }
 
@@ -184,39 +185,44 @@ public class ServidorBorda {
         ServerSocket servidorInvalidacao = null;
         try {
             servidorInvalidacao = new ServerSocket(PORTA_INVALIDACAO);
-            // SEGURANÇA: esta porta também exige handshake RSA/AES/HMAC com Origem.
             System.out.println("Borda escutando invalidações na porta " + PORTA_INVALIDACAO + "...");
             while (true) {
                 Socket origem = servidorInvalidacao.accept();
-                // SEGURANÇA: vincular sessão à pública RSA da Origem antes de INVALIDATE.
                 try {
                     InputStream entrada = origem.getInputStream();
                     OutputStream saida = origem.getOutputStream();
+                    SessaoSegura sessao = iniciarSessao(entrada, saida, "Origem");
 
                     byte[] buffer = new byte[4096];
                     int bytesLidos = entrada.read(buffer);
-                    // se bytesLidos == -1, a conexão foi fechada pelo cliente, então tratamos como uma string vazia
-                    // se não, lemos a string normalment
-                    // SEGURANÇA: validar assinatura/HMAC e decifrar ANTES de cache.remove;
-                    // falha encerra conexão sem modificar cache.
-                    String comando = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                    if (bytesLidos == -1) {
+                        System.out.println("Origem desconectou antes de INVALIDATE.");
+                        continue;
+                    }
+                    String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                    // Falha de autenticação encerra conexão antes de qualquer alteração no cache.
+                    String comando = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),
+                            sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+                    System.out.println("HMAC de INVALIDATE validado.");
 
+                    String resposta;
                     if (!comando.startsWith("INVALIDATE /")) {
-                        saida.write("[ERROR] Comando de invalidação inválido\n".getBytes(StandardCharsets.UTF_8));
-                        continue;
+                        resposta = "[ERROR] Comando de invalidação inválido";
+                    } else {
+                        String nomeArquivo = comando.substring("INVALIDATE /".length());
+                        if (!nomeArquivo.matches("arquivo(?:[1-9]\\d{0,2}|1000)\\.ext")) {
+                            resposta = "[ERROR] Nome de arquivo inválido";
+                        } else {
+                            String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4);
+                            cache.remove(idArquivo);
+                            System.out.println("Cache invalidado: " + nomeArquivo);
+                            resposta = "INVALIDATED /" + nomeArquivo;
+                        }
                     }
-                    String nomeArquivo = comando.substring("INVALIDATE /".length());
-                    if (!nomeArquivo.matches("arquivo(?:[1-9]\\d{0,2}|1000)\\.ext")) {
-                        saida.write("[ERROR] Nome de arquivo inválido\n".getBytes(StandardCharsets.UTF_8));
-                        continue;
-                    }
-
-                    String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4);
-                    cache.remove(idArquivo);
-                    System.out.println("Cache invalidado: " + nomeArquivo);
-                    // SEGURANÇA: cifrar e autenticar também confirmação INVALIDATED.
-                    saida.write(("INVALIDATED /" + nomeArquivo + "\n").getBytes(StandardCharsets.UTF_8));
-                } catch (IOException e) {
+                    String protegido = EnvelopeSeguro.proteger(resposta, aes, sessao.getChaveAES(),
+                            sessao.getChaveHMAC(), rsa);
+                    saida.write(protegido.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException | GeneralSecurityException | RuntimeException e) {
                     System.out.println("Erro ao receber invalidação: " + e.getMessage());
                 } finally {
                     try {
