@@ -16,9 +16,11 @@ import javax.crypto.spec.SecretKeySpec;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 import utils.SessaoCliente;
 
 public class ServidorDNS {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao1");
     private final int PORTA_DNS = 5959;
     private final HashMap<String, String> tabelaDNS = new HashMap<>();
 
@@ -53,6 +55,8 @@ public class ServidorDNS {
                     socket.receive(pacoteRecebido);
                     InetSocketAddress origem = new InetSocketAddress(pacoteRecebido.getAddress(), pacoteRecebido.getPort());
                     String mensagemRecebida = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+                    String cliente = "Cliente:" + origem.getPort();
+                    LOG.registrar(cliente, "DNS", "UDP RECEBIDO", mensagemRecebida);
 
                     if (mensagemRecebida.startsWith("HELLO|")) {
                         tratarHello(mensagemRecebida, origem);
@@ -62,20 +66,24 @@ public class ServidorDNS {
                         SessaoCliente sessao = sessoes.get(origem);
                         if (sessao == null || !sessao.isPronta()) {
                             System.err.println("Cliente sem sessão pronta: " + origem);
+                            LOG.registrar(cliente, "DNS", "PACOTE DESCARTADO", mensagemRecebida);
                             continue;
                         }
 
                         // Verificar assinatura do HMAC antes de qualquer comando.
                         String comando = verificarEDecifrar(mensagemRecebida, sessao);
                         if (comando == null) {
+                            LOG.registrar(cliente, "DNS", "HMAC INVALIDO", mensagemRecebida);
                             System.err.println("[ERROR] Assinatura/HMAC inválido de " + origem + ". Mensagem ignorada.");
                             continue;
                         }
                         System.out.println("Mensagem de " + origem + ": " + comando);
+                        LOG.registrar(cliente, "DNS", "HMAC OK " + comando.split("\\|", 2)[0], comando);
                         processarComando(comando, origem, sessao);
                     }
                 } catch (IOException | GeneralSecurityException | RuntimeException e) {
                     // Datagrama inválido não deve derrubar o servidor nem outros clientes.
+                    LOG.registrar("Cliente", "DNS", "FALHA PACOTE", e.getMessage());
                     System.err.println("Erro ao processar pacote: " + e.getMessage());
                     if (socket.isClosed()) break;
                 }
@@ -102,6 +110,7 @@ public class ServidorDNS {
         String resposta = "PUBLIC_KEY|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        LOG.registrar("DNS", "Cliente:" + origem.getPort(), "UDP ENVIO PUBLIC_KEY", resposta);
         System.out.println("Chave pública do servidor enviada a " + origem + ".");
     }
 
@@ -127,7 +136,9 @@ public class ServidorDNS {
         String confirmacao = "SESSION_OK|" + Base64.getEncoder().encodeToString(assinatura);
         byte[] dados = confirmacao.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        LOG.registrar("DNS", "Cliente:" + origem.getPort(), "UDP ENVIO SESSION_OK", confirmacao);
         sessao.confirmar(chaveAES, bytesHMAC);
+        LOG.registrar("Cliente:" + origem.getPort(), "DNS", "SESSAO PRONTA", "Handshake AES/HMAC confirmado");
         System.out.println("Sessão AES/HMAC confirmada com " + origem + ".");
     }
 
@@ -141,7 +152,7 @@ public class ServidorDNS {
         byte[] macEsperado = ImplHMAC.gerarMAC(conteudo.getBytes(StandardCharsets.UTF_8), sessao.getChaveHMAC());
         byte[] assinaturaRecebida = Base64.getDecoder().decode(partes[2]);
         try {
-            // A pública guardada nesta sessão é a do cliente que enviou o pacote.
+            // A pública guardada nesta sessão é a do cliente que enviou o pacote
             if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, sessao.getChavePublica())) return null;
         } catch (java.security.SignatureException e) {
             return null; // assinatura malformada: não processar comando nem encerrar servidor
@@ -177,12 +188,12 @@ public class ServidorDNS {
             String nomeServidor = comando.substring(4).trim();
             String enderecoIP = tabelaDNS.get(nomeServidor);
             resposta = enderecoIP == null
-                    ? nomeServidor + " não encontrado."
+                    ? nomeServidor + " não encontrado. Tente outra vez!"
                     : "Endereço IP de " + nomeServidor + ": " + enderecoIP;
         } else if (comando.startsWith("SET|")) {
             String[] partes = comando.split("\\|", -1);
             if (partes.length != 3) {
-                resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
+                resposta = "[ERROR] Erro na entrada de dados. Tente outra vez! Use: SET|nomeServidor|novoEnderecoIP";
             } else {
                 String nomeServidor = partes[1].trim();
                 String enderecoIP = partes[2].trim();
@@ -200,6 +211,7 @@ public class ServidorDNS {
             }
         } else if ("QUIT".equals(comando)) {
             sessoes.remove(origem);
+            LOG.registrar("Cliente:" + origem.getPort(), "DNS", "QUIT", "Sessão encerrada");
             System.out.println("O cliente " + origem + " desconectou.");
             return; // cliente já fechou seu socket; não espera resposta de despedida
         } else {
@@ -210,10 +222,12 @@ public class ServidorDNS {
         String mensagemSegura = cifrarEAutenticar(resposta, sessao);
         byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        LOG.registrar("DNS", "Cliente:" + origem.getPort(), "UDP ENVIO RESPOSTA", mensagemSegura);
         System.out.println("Resposta enviada a " + origem + ".");
 
         if (nomeAlterado != null) {
             System.out.println("IP de " + nomeAlterado + " alterado: " + ipAntigo + " -> " + novoIP);
+            LOG.registrar("DNS", "Tabela DNS", "SET", nomeAlterado + " " + ipAntigo + " -> " + novoIP);
             notificarClientes(nomeAlterado, ipAntigo, novoIP);
         }
     }
@@ -231,8 +245,10 @@ public class ServidorDNS {
                 String mensagemSegura = cifrarEAutenticar(notificacao, sessao);
                 byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
                 socket.send(new DatagramPacket(dados, dados.length, destino.getAddress(), destino.getPort()));
+                LOG.registrar("DNS", "Cliente:" + destino.getPort(), "UDP ENVIO NOTIFY", mensagemSegura);
                 enviados++;
             } catch (IOException | GeneralSecurityException | RuntimeException e) {
+                LOG.registrar("DNS", "Cliente:" + destino.getPort(), "FALHA NOTIFY", e.getMessage());
                 System.err.println("Erro ao notificar " + destino + ": " + e.getMessage());
             }
         }

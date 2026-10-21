@@ -12,9 +12,9 @@ public class ImplRSA {
     private PublicKey chavePublica;
     private PrivateKey chavePrivada;
 
-    // Padding seguro (OAEP) em vez de
-    // RSA puro sem padding
+    // OAEP para cifrar chaves com a pública; PKCS1Padding para a assinatura didática do HMAC.
     private static final String PADDING = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    private static final String PADDING_HMAC = "RSA/ECB/PKCS1Padding";
 
     public ImplRSA() throws NoSuchAlgorithmException {
         gerarChaves();
@@ -65,21 +65,23 @@ public class ImplRSA {
         return bytesMsgDecifrada;
     }
 
-    // Assina os bytes do HMAC com a chave privada desta entidade
-    // Signature calcula SHA-256 internamente
+    // cifra o HMAC com a chave privada do emissor
     public byte[] assinar(byte[] mac) throws GeneralSecurityException {
-        Signature assinatura = Signature.getInstance("SHA256withRSA");
-        assinatura.initSign(chavePrivada);
-        assinatura.update(mac);
-        return assinatura.sign();
+        Cipher cifrador = Cipher.getInstance(PADDING_HMAC);
+        cifrador.init(Cipher.ENCRYPT_MODE, chavePrivada);
+        return cifrador.doFinal(mac);
     }
 
-    // A chave pública precisa pertencer ao emissor da mensagem recebida.
+    // Recupera o HMAC com a pública do emissor e compara com o HMAC recalculado.
     public boolean verificarAssinatura(byte[] mac, byte[] assinaturaRecebida, PublicKey chavePublicaEmissor)
             throws GeneralSecurityException {
-        Signature verificador = Signature.getInstance("SHA256withRSA");
-        verificador.initVerify(chavePublicaEmissor);
-        verificador.update(mac);
-        return verificador.verify(assinaturaRecebida);
+        Cipher decifrador = Cipher.getInstance(PADDING_HMAC);
+        decifrador.init(Cipher.DECRYPT_MODE, chavePublicaEmissor);
+        try {
+            byte[] macRecebido = decifrador.doFinal(assinaturaRecebida);
+            return MessageDigest.isEqual(mac, macRecebido);
+        } catch (BadPaddingException | IllegalBlockSizeException e) {
+            return false;
+        }
     }
 }

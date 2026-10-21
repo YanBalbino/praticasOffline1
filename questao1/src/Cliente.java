@@ -18,8 +18,10 @@ import javax.crypto.SecretKey;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 
 public class Cliente {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao1");
     private boolean isRegistrador;
     DatagramSocket socket = null;
     private final int PORTA_DNS = 5959;
@@ -40,8 +42,8 @@ public class Cliente {
             SecretKey chaveAES = gerarChaveAES();
             byte[] chaveHMAC = gerarChaveHMAC();
 
-            // Públicas trocadas sem validação de identidade, conforme escopo do trabalho.
-            // Só a thread principal recebe pacotes até o fim do handshake.
+            // Públicas trocadas sem validação de identidade, conforme escopo do trabalho
+            // Só a thread principal recebe pacotes até o fim do handshake
             PublicKey chavePublicaServidor = iniciarSessao(enderecoServidor, rsa, chaveAES, chaveHMAC);
 
             // blocking queue para armazenar respostas do servidor
@@ -59,23 +61,29 @@ public class Cliente {
                             socket.receive(pacoteRecebido);
 
                             String envelope = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+                            String cliente = "Cliente:" + socket.getLocalPort();
+                            LOG.registrar("DNS", cliente, "UDP RECEBIDO", envelope);
                             try {
                                 // Verifica assinatura do HMAC antes de decifrar com AES.
                                 String mensagemRecebida = verificarEDecifrar(
                                         envelope, aes, chaveAES, chaveHMAC, rsa, chavePublicaServidor);
 
                                 if (mensagemRecebida == null) {
+                                    LOG.registrar("DNS", cliente, "HMAC INVALIDO", envelope);
                                     System.err.println("[ERROR] Assinatura/HMAC inválido. Mensagem ignorada.");
                                     continue;
                                 }
 
                                 if (mensagemRecebida.startsWith("NOTIFY|")) {
+                                    LOG.registrar("DNS", cliente, "HMAC OK NOTIFY", mensagemRecebida);
                                     System.out.println("\n[NOTIFICAÇÃO]: " + mensagemRecebida.substring(7) + "\n");
                                 } else {
+                                    LOG.registrar("DNS", cliente, "HMAC OK RESPOSTA", mensagemRecebida);
                                     filaRespostas.offer(mensagemRecebida);
                                 }
                             } catch (RuntimeException e) {
                                 // Dados inválidos não devem encerrar a thread que recebe notificações.
+                                LOG.registrar("DNS", cliente, "FALHA PACOTE", e.getMessage());
                                 System.err.println("Mensagem recebida inválida: " + e.getMessage());
                             }
                         }
@@ -121,6 +129,11 @@ public class Cliente {
                     case "3":
                         resposta = "QUIT";
                         break;
+                    case "4":
+                        System.out.println("Qual o servidor?");
+                        String nomeServidorHmacCorrompido = teclado.nextLine();
+                        resposta = "GET|" + nomeServidorHmacCorrompido;
+                        break;
                     default:
                         System.out.println("[ERROR] Operação inválida. Tente novamente.");
                         operacao = null;
@@ -130,14 +143,29 @@ public class Cliente {
                 if (operacao == null) continue;
 
                 // Constrói mensagem completa antes do envio
-                String mensagemSegura = cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC, rsa);
+                String mensagemSegura = "4".equals(operacao)
+                        ? cifrarEAutenticarComHMACCorrompido(resposta, aes, chaveAES, chaveHMAC, rsa)
+                        : cifrarEAutenticar(resposta, aes, chaveAES, chaveHMAC, rsa);
                 byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
                 socket.send(pacoteResposta);
+                String tipo = resposta.split("\\|", 2)[0];
+                String evento = "4".equals(operacao)
+                        ? "UDP ENVIO " + tipo + " HMAC CORROMPIDO"
+                        : "UDP ENVIO " + tipo;
+                String conteudoLog = "4".equals(operacao)
+                        ? "Resumo HMAC corrompido | " + mensagemSegura
+                        : mensagemSegura;
+                LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", evento, conteudoLog);
 
                 if ("QUIT".equals(resposta)) {
                     socket.close();
                     return;
+                }
+
+                if ("4".equals(operacao)) {
+                    System.out.println("GET enviado com HMAC corrompido. DNS deve descartar o pacote.");
+                    continue;
                 }
 
                 // usa uma blocking queue pra esperar a resposta do servidor
@@ -145,6 +173,7 @@ public class Cliente {
                 try {
                     String mensagemDoServidor = filaRespostas.poll(3, TimeUnit.SECONDS);
                     if (mensagemDoServidor == null) {
+                        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "TIMEOUT", resposta);
                         System.out.println("[ERROR] Tempo de resposta do servidor excedido. Tente novamente.");
                     } else {
                         System.out.println("Resposta do servidor:\n" + mensagemDoServidor);
@@ -155,6 +184,7 @@ public class Cliente {
                 }
             }
         } catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
+            LOG.registrar("Cliente", "DNS", "FALHA CONEXAO", e.getMessage());
             System.err.println("Erro ao se comunicar com servidor: " + e.getMessage());
         } finally {
             if (socket != null) socket.close();
@@ -181,6 +211,7 @@ public class Cliente {
         String hello = "HELLO|" + chavePublicaCliente;
         byte[] dadosHello = hello.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dadosHello, dadosHello.length, enderecoServidor, PORTA_DNS));
+        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO HELLO", hello);
 
         byte[] buffer = new byte[4096];
         DatagramPacket pacoteRecebido = new DatagramPacket(buffer, buffer.length);
@@ -188,6 +219,7 @@ public class Cliente {
 
         // recebendo chave RSA pública do servidor
         String resposta = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "UDP RECEBIDO PUBLIC_KEY", resposta);
 
         if (!resposta.startsWith("PUBLIC_KEY|")) {
             throw new IOException("Chave pública do servidor não recebida.");
@@ -202,13 +234,16 @@ public class Cliente {
         byte[] dadosSessao = sessao.getBytes(StandardCharsets.UTF_8);
 
         socket.send(new DatagramPacket(dadosSessao, dadosSessao.length, enderecoServidor, PORTA_DNS));
+        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO SESSION", sessao);
 
         // SESSION_OK contém assinatura RSA do HMAC sobre o texto exato de SESSION.
         buffer = new byte[4096];
         pacoteRecebido = new DatagramPacket(buffer, buffer.length);
         socket.receive(pacoteRecebido);
         String confirmacao = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "UDP RECEBIDO SESSION_OK", confirmacao);
         confirmarSessao(sessao, confirmacao, chaveHMAC, rsa, chavePublicaServidor);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "HMAC OK SESSION", "Handshake AES/HMAC confirmado");
         return chavePublicaServidor;
     }
 
@@ -235,6 +270,20 @@ public class Cliente {
         return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
     }
 
+    // método personalizado pra simular erro de HMAC
+    private String cifrarEAutenticarComHMACCorrompido(String mensagem, ImplAES256 aes,
+            SecretKey chaveAES, byte[] chaveHMAC, ImplRSA rsa) throws GeneralSecurityException {
+        byte[] cifrado = aes.cifrar(mensagem, chaveAES);
+        String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
+
+        String textoHmacCorrompido = "Resumo HMAC corrompido";
+
+        byte[] mac = ImplHMAC.gerarMAC(
+                textoHmacCorrompido.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        byte[] assinatura = rsa.assinar(mac);
+        return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
+    }
+
     private String verificarEDecifrar(String envelope, ImplAES256 aes, SecretKey chaveAES,
             byte[] chaveHMAC, ImplRSA rsa, PublicKey chavePublicaServidor) throws GeneralSecurityException {
         String[] partes = envelope.split("\\|", -1);
@@ -248,7 +297,7 @@ public class Cliente {
         try {
             if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, chavePublicaServidor)) return null;
         } catch (java.security.SignatureException e) {
-            return null; // Assinatura malformada também é pacote inválido, não fim da thread.
+            return null; // Assinatura malformada também é pacote inválido, não fim da thread
         }
         byte[] cifrado = Base64.getDecoder().decode(partes[1]);
         return new String(aes.decifrar(cifrado, chaveAES), StandardCharsets.UTF_8);
@@ -260,12 +309,13 @@ public class Cliente {
                 "0 - LIST (listar servidores registrados no DNS)\n" +
                 "1 - GET (obter endereço de servidor por nome)\n" +
                 "2 - SET (definir endereço de servidor por nome)\n" +
-                "3 - QUIT (encerrar conexão)");
+                "3 - QUIT (encerrar conexão)\n" +
+                "4 - GET com HMAC corrompido (testar integridade)");
         System.out.println("Selecione uma operação: ");
     }
 
     public static void main(String[] args) {
-        new Cliente(true);
-        //new Cliente(false);
+        //new Cliente(true);
+        new Cliente(false);
     }
 }
