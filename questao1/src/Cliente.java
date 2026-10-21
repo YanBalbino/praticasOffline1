@@ -18,8 +18,10 @@ import javax.crypto.SecretKey;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 
 public class Cliente {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao1");
     private boolean isRegistrador;
     DatagramSocket socket = null;
     private final int PORTA_DNS = 5959;
@@ -59,23 +61,29 @@ public class Cliente {
                             socket.receive(pacoteRecebido);
 
                             String envelope = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+                            String cliente = "Cliente:" + socket.getLocalPort();
+                            LOG.registrar("DNS", cliente, "UDP RECEBIDO", envelope);
                             try {
                                 // Verifica assinatura do HMAC antes de decifrar com AES.
                                 String mensagemRecebida = verificarEDecifrar(
                                         envelope, aes, chaveAES, chaveHMAC, rsa, chavePublicaServidor);
 
                                 if (mensagemRecebida == null) {
+                                    LOG.registrar("DNS", cliente, "HMAC INVALIDO", envelope);
                                     System.err.println("[ERROR] Assinatura/HMAC inválido. Mensagem ignorada.");
                                     continue;
                                 }
 
                                 if (mensagemRecebida.startsWith("NOTIFY|")) {
+                                    LOG.registrar("DNS", cliente, "HMAC OK NOTIFY", mensagemRecebida);
                                     System.out.println("\n[NOTIFICAÇÃO]: " + mensagemRecebida.substring(7) + "\n");
                                 } else {
+                                    LOG.registrar("DNS", cliente, "HMAC OK RESPOSTA", mensagemRecebida);
                                     filaRespostas.offer(mensagemRecebida);
                                 }
                             } catch (RuntimeException e) {
                                 // Dados inválidos não devem encerrar a thread que recebe notificações.
+                                LOG.registrar("DNS", cliente, "FALHA PACOTE", e.getMessage());
                                 System.err.println("Mensagem recebida inválida: " + e.getMessage());
                             }
                         }
@@ -134,6 +142,8 @@ public class Cliente {
                 byte[] dados = mensagemSegura.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket pacoteResposta = new DatagramPacket(dados, dados.length, enderecoServidor, PORTA_DNS);
                 socket.send(pacoteResposta);
+                String tipo = resposta.split("\\|", 2)[0];
+                LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO " + tipo, mensagemSegura);
 
                 if ("QUIT".equals(resposta)) {
                     socket.close();
@@ -145,6 +155,7 @@ public class Cliente {
                 try {
                     String mensagemDoServidor = filaRespostas.poll(3, TimeUnit.SECONDS);
                     if (mensagemDoServidor == null) {
+                        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "TIMEOUT", resposta);
                         System.out.println("[ERROR] Tempo de resposta do servidor excedido. Tente novamente.");
                     } else {
                         System.out.println("Resposta do servidor:\n" + mensagemDoServidor);
@@ -155,6 +166,7 @@ public class Cliente {
                 }
             }
         } catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
+            LOG.registrar("Cliente", "DNS", "FALHA CONEXAO", e.getMessage());
             System.err.println("Erro ao se comunicar com servidor: " + e.getMessage());
         } finally {
             if (socket != null) socket.close();
@@ -181,6 +193,7 @@ public class Cliente {
         String hello = "HELLO|" + chavePublicaCliente;
         byte[] dadosHello = hello.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dadosHello, dadosHello.length, enderecoServidor, PORTA_DNS));
+        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO HELLO", hello);
 
         byte[] buffer = new byte[4096];
         DatagramPacket pacoteRecebido = new DatagramPacket(buffer, buffer.length);
@@ -188,6 +201,7 @@ public class Cliente {
 
         // recebendo chave RSA pública do servidor
         String resposta = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "UDP RECEBIDO PUBLIC_KEY", resposta);
 
         if (!resposta.startsWith("PUBLIC_KEY|")) {
             throw new IOException("Chave pública do servidor não recebida.");
@@ -202,13 +216,16 @@ public class Cliente {
         byte[] dadosSessao = sessao.getBytes(StandardCharsets.UTF_8);
 
         socket.send(new DatagramPacket(dadosSessao, dadosSessao.length, enderecoServidor, PORTA_DNS));
+        LOG.registrar("Cliente:" + socket.getLocalPort(), "DNS", "UDP ENVIO SESSION", sessao);
 
         // SESSION_OK contém assinatura RSA do HMAC sobre o texto exato de SESSION.
         buffer = new byte[4096];
         pacoteRecebido = new DatagramPacket(buffer, buffer.length);
         socket.receive(pacoteRecebido);
         String confirmacao = new String(buffer, 0, pacoteRecebido.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "UDP RECEBIDO SESSION_OK", confirmacao);
         confirmarSessao(sessao, confirmacao, chaveHMAC, rsa, chavePublicaServidor);
+        LOG.registrar("DNS", "Cliente:" + socket.getLocalPort(), "HMAC OK SESSION", "Handshake AES/HMAC confirmado");
         return chavePublicaServidor;
     }
 
