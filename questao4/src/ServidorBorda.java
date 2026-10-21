@@ -9,7 +9,7 @@ import java.util.HashMap;
 public class ServidorBorda {
     final private int PORTA_BORDA = 8003;
     final private int PORTA_ORIGEM = 8000;
-    private static final long TTL_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    private static final long TTL_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(10); // 10 segundos de TTL
 
     private static class EntradaCache {
         final String arquivo;
@@ -103,7 +103,7 @@ public class ServidorBorda {
 
     private void buscarNaCache(String idArquivo, OutputStream saida) throws IOException{
         EntradaCache entrada = cache.get(idArquivo);
-        if (entrada != null && System.nanoTime() - entrada.criadaEm >= TTL_NANOS) {
+        if (entrada != null && System.nanoTime() - entrada.criadaEm >= TTL_NANOS) { // não é nulo e TTL expirou
             cache.remove(idArquivo);
             entrada = null;
             System.out.println("TTL expirado: arquivo" + idArquivo + ".ext");
