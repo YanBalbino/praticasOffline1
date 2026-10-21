@@ -1,11 +1,25 @@
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.Scanner;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import utils.EnvelopeSeguro;
+import utils.ImplAES256;
+import utils.ImplHMAC;
+import utils.ImplRSA;
+import utils.SessaoSegura;
 
 public class Cliente {
     private final int PORTA_GEODNS = 5354;
@@ -51,21 +65,27 @@ public class Cliente {
 
     private void localizarBorda() {
         DatagramSocket socket = null;
+        ipBorda = null;
+        portaBorda = 0;
         try {
             socket = new DatagramSocket();
-            // SEGURANÇA: antes do LOCATE, HELLO/SESSION RSA com GeoDNS neste socket UDP;
-            // trocar apenas públicas RSA e chaves simétricas AES/HMAC cifradas, nunca privada RSA.
             socket.setSoTimeout(3000);
-            byte[] dados = "LOCATE".getBytes(StandardCharsets.UTF_8);
             InetAddress destino = InetAddress.getByName("localhost");
-            // SEGURANÇA: cifrar LOCATE com AES, HMAC do cifrado e assinatura RSA do HMAC.
+            socket.connect(destino, PORTA_GEODNS); // só recebe pacotes desse GeoDNS
+            ImplRSA rsa = new ImplRSA();
+            ImplAES256 aes = new ImplAES256();
+            SessaoSegura sessao = iniciarSessao(socket, destino, rsa);
+
+            String protegido = EnvelopeSeguro.proteger("LOCATE", aes, sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
+            byte[] dados = protegido.getBytes(StandardCharsets.UTF_8);
             socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
 
             byte[] buffer = new byte[4096];
             DatagramPacket resposta = new DatagramPacket(buffer, buffer.length);
             socket.receive(resposta);
-            // SEGURANÇA: validar HMAC/assinatura do GeoDNS antes de decifrar LOCATION.
-            String mensagem = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+            String envelope = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+            String mensagem = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+            System.out.println("HMAC validado na resposta do GeoDNS.");
             if (!mensagem.startsWith("LOCATION /")) {
                 System.out.println(mensagem);
                 return;
@@ -84,23 +104,84 @@ public class Cliente {
             ipBorda = endereco[0];
             portaBorda = porta;
             System.out.println("Borda localizada: " + ipBorda + ":" + portaBorda);
-        } catch (IOException | NumberFormatException e) {
+        } catch (IOException | GeneralSecurityException | RuntimeException e) {
             System.out.println("[ERROR] Falha no LOCATE: " + e.getMessage());
         } finally {
             if (socket != null) socket.close();
         }
     }
 
+    // Handshake UDP com GeoDNS
+    private SessaoSegura iniciarSessao(DatagramSocket socket, InetAddress destino, ImplRSA rsa)
+            throws IOException, GeneralSecurityException {
+        String hello = "HELLO|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
+        byte[] dados = hello.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
+
+        byte[] buffer = new byte[4096];
+        DatagramPacket resposta = new DatagramPacket(buffer, buffer.length);
+        socket.receive(resposta);
+
+        String mensagem = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+        if (!mensagem.startsWith("PUBLIC_KEY|")){ 
+            throw new IOException("Pública do GeoDNS não recebida."); 
+        }
+
+        String chaveExtraidaString = mensagem.substring("PUBLIC_KEY|".length()); // Extrai a chave pública do GeoDNS da resposta recebida
+        byte[] chaveExtraidaBytes = Base64.getDecoder().decode(chaveExtraidaString); // converte pra bytes pra geração de PublicKey
+
+        PublicKey publicaGeoDNS = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(chaveExtraidaBytes));
+
+        KeyGenerator gerador = KeyGenerator.getInstance("AES");
+        gerador.init(256);
+        SecretKey chaveAES = gerador.generateKey();
+        byte[] chaveHMAC = new byte[32];
+        new SecureRandom().nextBytes(chaveHMAC);
+
+        String chaveAESCifrada = Base64.getEncoder().encodeToString(rsa.cifrar(chaveAES.getEncoded(), publicaGeoDNS));
+        String chaveHMACCifrada = Base64.getEncoder().encodeToString(rsa.cifrar(chaveHMAC, publicaGeoDNS));
+
+        String session = "SESSION|" + chaveAESCifrada + "|" + chaveHMACCifrada;
+
+        dados = session.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
+
+        // envia sessão e espera OK
+        buffer = new byte[4096];
+        resposta = new DatagramPacket(buffer, buffer.length);
+        socket.receive(resposta);
+        String confirmacao = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+
+        if (!confirmacao.startsWith("SESSION_OK|")) {
+            throw new IOException("GeoDNS não confirmou a sessão.");
+        
+        }
+        byte[] mac = ImplHMAC.gerarMAC(session.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        byte[] assinatura = Base64.getDecoder().decode(confirmacao.substring("SESSION_OK|".length()));
+
+        // assinatura inválida gera exceção e encerra
+        if (!rsa.verificarAssinatura(mac, assinatura, publicaGeoDNS)) {
+            throw new SecurityException("HMAC/assinatura de SESSION_OK inválido.");
+        }
+        SessaoSegura sessao = new SessaoSegura(publicaGeoDNS);
+        sessao.confirmar(chaveAES, chaveHMAC);
+        return sessao;
+    }
+
     private void buscarArquivo(String nomeArquivo) {
         Socket borda = null;
         try {
             borda = new Socket(ipBorda, portaBorda);
-            // SEGURANÇA: handshake RSA/AES/HMAC com esta Borda antes do GET.
-            byte[] pedido = ("GET /" + nomeArquivo).getBytes(StandardCharsets.UTF_8);
-            // SEGURANÇA: enviar GET cifrado com AES e HMAC assinado pela RSA do Cliente.
-            borda.getOutputStream().write(pedido);
-
             InputStream entrada = borda.getInputStream();
+            OutputStream saida = borda.getOutputStream();
+
+            //handshake RSA/AES/HMAC com Borda antes do GET
+            byte[] pedido = ("GET /" + nomeArquivo).getBytes(StandardCharsets.UTF_8);
+
+            // GET cifrado com AES e HMAC assinado pela RSA do Cliente.
+            saida.write(pedido);
+
+            // resposta do servidor de borda
             byte[] buffer = new byte[4096];
             String resposta = "";
             int bytesLidos = entrada.read(buffer);
@@ -108,9 +189,9 @@ public class Cliente {
                 resposta += new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
                 bytesLidos = entrada.read(buffer);
             }
-            // SEGURANÇA: validar assinatura/HMAC e decifrar cada HIT, MISS, DATA ou [ERROR]
-            // antes de interpretar/exibir; rejeitar resposta adulterada.
-            System.out.println(resposta.trim()); // exibe a resposta do servidor de borda
+            // valida assinatura/HMAC e decifra HIT, MISS, DATA ou [ERROR]
+            // antes de interpretar/exibir; rejeitar resposta adulterada
+            System.out.println(resposta.trim()); 
         } catch (IOException e) {
             System.out.println("[ERROR] Falha no GET: " + e.getMessage());
         } finally {
