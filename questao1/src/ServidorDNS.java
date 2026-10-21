@@ -188,12 +188,12 @@ public class ServidorDNS {
             String nomeServidor = comando.substring(4).trim();
             String enderecoIP = tabelaDNS.get(nomeServidor);
             resposta = enderecoIP == null
-                    ? nomeServidor + " não encontrado."
+                    ? nomeServidor + " não encontrado. Tente outra vez!"
                     : "Endereço IP de " + nomeServidor + ": " + enderecoIP;
         } else if (comando.startsWith("SET|")) {
             String[] partes = comando.split("\\|", -1);
             if (partes.length != 3) {
-                resposta = "Erro: Formato inválido para SET. Use: SET|nomeServidor|novoEnderecoIP";
+                resposta = "[ERROR] Erro na entrada de dados. Tente outra vez! Use: SET|nomeServidor|novoEnderecoIP";
             } else {
                 String nomeServidor = partes[1].trim();
                 String enderecoIP = partes[2].trim();
