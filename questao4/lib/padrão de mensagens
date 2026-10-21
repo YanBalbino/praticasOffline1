@@ -1,6 +1,5 @@
 Cliente -> Router
 LOCATE
-(opcional futuramente: LOCATE /arquivoXXXX.ext|<REGIÃO>)
 Router -> Cliente
 LOCATION /<ip:porta>
 

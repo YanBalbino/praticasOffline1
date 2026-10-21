@@ -277,7 +277,7 @@ public class Cliente {
         String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
 
         String textoHmacCorrompido = "Resumo HMAC corrompido";
-        
+
         byte[] mac = ImplHMAC.gerarMAC(
                 textoHmacCorrompido.getBytes(StandardCharsets.UTF_8), chaveHMAC);
         byte[] assinatura = rsa.assinar(mac);
