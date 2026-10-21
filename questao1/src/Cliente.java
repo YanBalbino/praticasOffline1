@@ -42,8 +42,8 @@ public class Cliente {
             SecretKey chaveAES = gerarChaveAES();
             byte[] chaveHMAC = gerarChaveHMAC();
 
-            // Públicas trocadas sem validação de identidade, conforme escopo do trabalho.
-            // Só a thread principal recebe pacotes até o fim do handshake.
+            // Públicas trocadas sem validação de identidade, conforme escopo do trabalho
+            // Só a thread principal recebe pacotes até o fim do handshake
             PublicKey chavePublicaServidor = iniciarSessao(enderecoServidor, rsa, chaveAES, chaveHMAC);
 
             // blocking queue para armazenar respostas do servidor
