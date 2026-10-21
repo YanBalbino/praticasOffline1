@@ -3,10 +3,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Scanner;
 
 public class ServidorOrigem {
     private final int PORTA_ORIGEM = 8000;
+    private final int PORTA_INVALIDACAO_BORDA = 8103;
     private HashMap<String,String> arquivos; // hashmap para agilizar buscas, não usei Set por falta de familiaridade 
 
     public ServidorOrigem(){
@@ -25,6 +28,32 @@ public class ServidorOrigem {
             servidorOrigem = new ServerSocket(PORTA_ORIGEM);
 
             System.out.println("Servidor de origem rodando na porta " + PORTA_ORIGEM + "...");
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Scanner teclado = new Scanner(System.in);
+                    while (true) {
+                        System.out.println("1 - Invalidar arquivo na borda | 0 - Sair do menu");
+                        if (!teclado.hasNextLine()) return;
+                        String opcao = teclado.nextLine().trim();
+                        if ("0".equals(opcao)) return;
+                        if (!"1".equals(opcao)) {
+                            System.out.println("Opção inválida.");
+                            continue;
+                        }
+
+                        System.out.println("Nome do arquivo:");
+                        if (!teclado.hasNextLine()) return;
+                        String nomeArquivo = teclado.nextLine().trim();
+                        if (!nomeArquivo.matches("arquivo(?:[1-9]\\d{0,2}|1000)\\.ext")) {
+                            System.out.println("[ERROR] Nome de arquivo inválido");
+                            continue;
+                        }
+                        invalidarCache(nomeArquivo);
+                    }
+                }
+            }).start();
 
             // busca novas conexões
             while (true){
@@ -95,6 +124,40 @@ public class ServidorOrigem {
                     servidorOrigem.close();
                 } catch (IOException e){
                     System.out.println("Erro ao fechar o servidor: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void invalidarCache(String nomeArquivo) {
+        Socket borda = null;
+        try {
+            borda = new Socket("localhost", PORTA_INVALIDACAO_BORDA);
+
+            OutputStream saida = borda.getOutputStream();
+            InputStream entrada = borda.getInputStream();
+
+            String comando = "INVALIDATE /" + nomeArquivo;
+           saida.write(comando.getBytes(StandardCharsets.UTF_8));
+
+            byte[] buffer = new byte[4096];
+            int bytesLidos = entrada.read(buffer);
+
+            String resposta = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8).trim();
+
+            if (("INVALIDATED /" + nomeArquivo).equals(resposta)) {
+                System.out.println("Cache invalidado na borda: " + nomeArquivo);
+            } else {
+                System.out.println("[ERROR] Falha ao invalidar cache: " + resposta);
+            }
+        } catch (IOException e) {
+            System.out.println("[ERROR] Falha na comunicação com a borda: " + e.getMessage());
+        } finally {
+            if (borda != null) {
+                try {
+                    borda.close();
+                } catch (IOException e) {
+                    System.out.println("Erro ao fechar conexão com a borda: " + e.getMessage());
                 }
             }
         }
