@@ -7,13 +7,13 @@ import java.util.HashMap;
 
 public class ServidorOrigem {
     private final int PORTA_ORIGEM = 8000;
-    private HashMap<Integer,String> arquivos; // hashmap para agilizar buscas, não usei Set por falta de familiaridade 
+    private HashMap<String,String> arquivos; // hashmap para agilizar buscas, não usei Set por falta de familiaridade 
 
     public ServidorOrigem(){
         arquivos = new HashMap<>();
 
         for (int i = 1; i <= 1000; i++){
-            arquivos.put(i, "arquivo" + i + ".ext"); // par chave valor {id, arquivo[id].ext}
+            arquivos.put(i + "", "arquivo" + i + ".ext"); // par chave valor {id, arquivo[id].ext}
         }
 
         rodar();
@@ -63,7 +63,7 @@ public class ServidorOrigem {
                             continue;
                         }
 
-                        int idArquivo = Integer.parseInt(nomeArquivo.substring(7, nomeArquivo.length() - 4)); // remove "arquivo" e ".ext"
+                        String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4); // remove "arquivo" e ".ext"
 
                         if (!arquivos.containsKey(idArquivo)){
                             System.out.println("Arquivo não encontrado: " + nomeArquivo);
@@ -88,6 +88,15 @@ public class ServidorOrigem {
 
         } catch (IOException e){
             System.out.println("Erro na conexão: " + e.getMessage());
+        } finally {
+            // fecha o servidor
+            if (servidorOrigem != null){
+                try {
+                    servidorOrigem.close();
+                } catch (IOException e){
+                    System.out.println("Erro ao fechar o servidor: " + e.getMessage());
+                }
+            }
         }
     }
 
