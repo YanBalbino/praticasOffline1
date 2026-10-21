@@ -79,16 +79,16 @@ public class ServidorOrigem {
                         String mensagemRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
                         if (!mensagemRecebida.startsWith("GET /")){
                             System.out.println("Mensagem inválida recebida: " + mensagemRecebida);
-                            saida.write("Mensagem inválida".getBytes("UTF-8"));
+                            saida.write("[ERROR] Mensagem inválida\n".getBytes(StandardCharsets.UTF_8));
                             continue;
                         }
                         
                         System.out.println("Mensagem recebida da borda: " + mensagemRecebida);
 
                         String nomeArquivo = mensagemRecebida.substring(5); // remove GET /
-                        if (!nomeArquivo.matches("arquivo\\d+\\.ext") || nomeArquivo.length() > 15){
+                        if (!nomeArquivo.matches("arquivo(?:[1-9]\\d{0,2}|1000)\\.ext")){
                             System.out.println("Arquivo inválido solicitado: " + nomeArquivo);
-                            saida.write("Arquivo inválido".getBytes("UTF-8"));
+                            saida.write("[ERROR] Arquivo inválido\n".getBytes(StandardCharsets.UTF_8));
                             continue;
                         }
 
@@ -96,12 +96,12 @@ public class ServidorOrigem {
 
                         if (!arquivos.containsKey(idArquivo)){
                             System.out.println("Arquivo não encontrado: " + nomeArquivo);
-                            saida.write("Arquivo não encontrado".getBytes("UTF-8"));
+                            saida.write("[ERROR] Arquivo não encontrado\n".getBytes(StandardCharsets.UTF_8));
                             continue;
                         }
                         // envia resposta para o cliente
-                        String resposta = "Conteúdo do arquivo " + arquivos.get(idArquivo);
-                        saida.write(resposta.getBytes("UTF-8"));
+                        String resposta = "DATA /" + arquivos.get(idArquivo) + "\n";
+                        saida.write(resposta.getBytes(StandardCharsets.UTF_8));
                     }
                 } catch (IOException e){
                     System.out.println("Erro na conexão com o servidor de borda: " + e.getMessage());

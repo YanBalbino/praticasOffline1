@@ -67,7 +67,7 @@ public class ServidorBorda {
                         String mensagemRecebida = new String(buffer, 0, bytesLidos, "UTF-8");
                         if (!mensagemRecebida.startsWith("GET /")){
                             System.out.println("Mensagem inválida recebida: " + mensagemRecebida);
-                            saida.write("Mensagem inválida".getBytes("UTF-8"));
+                            saida.write("[ERROR] Mensagem inválida\n".getBytes(StandardCharsets.UTF_8));
                             continue;
                         }
                         
@@ -78,7 +78,7 @@ public class ServidorBorda {
 
                         if (!nomeArquivo.matches(regraNomeArquivo)){
                             System.out.println("Nome de arquivo inválido recebido: " + nomeArquivo);
-                            saida.write("Nome de arquivo inválido".getBytes("UTF-8"));
+                            saida.write("[ERROR] Nome de arquivo inválido\n".getBytes(StandardCharsets.UTF_8));
                             continue;
                         }
                         String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4); // remove "arquivo" e ".ext"
@@ -175,10 +175,11 @@ public class ServidorBorda {
 
         if (entrada != null){
             System.out.println("Cache HIT!");
-            String resposta = "Arquivo em cache:" + entrada.arquivo;
-            saida.write(resposta.getBytes("UTF-8"));
+            saida.write(("HIT /" + entrada.arquivo + "\n").getBytes(StandardCharsets.UTF_8));
         } else {
-            System.out.println("MISS para o arquivo: " + idArquivo);
+            String nomeArquivo = "arquivo" + idArquivo + ".ext";
+            System.out.println("MISS para o arquivo: " + nomeArquivo);
+            saida.write(("MISS /" + nomeArquivo + "\n").getBytes(StandardCharsets.UTF_8));
             buscarNaOrigem(idArquivo, saida);
         }
     }
@@ -200,25 +201,19 @@ public class ServidorBorda {
             int bytesLidosOrigem = entradaOrigem.read(bufferOrigem);
 
             if (bytesLidosOrigem > 0){
-                //TODO melhorar resposta
-                String respostaOrigem = new String(bufferOrigem, 0, bytesLidosOrigem, "UTF-8");
-
-                //TODO checar esse if após padronizar respostas
-                if (respostaOrigem.startsWith("Arquivo não encontrado")){
-                    System.out.println("Arquivo não encontrado na origem: " + idArquivo);
-                    saida.write(respostaOrigem.getBytes("UTF-8"));
+                String respostaOrigem = new String(bufferOrigem, 0, bytesLidosOrigem, StandardCharsets.UTF_8).trim();
+                if (!respostaOrigem.equals("DATA /arquivo" + idArquivo + ".ext")) {
+                    String erro = respostaOrigem.startsWith("[ERROR]") ? respostaOrigem : "[ERROR] Resposta inválida da origem";
+                    saida.write((erro + "\n").getBytes(StandardCharsets.UTF_8));
                     return;
                 }
 
-                // adiciona o arquivo à cache
-                cache.put(idArquivo, new EntradaCache(respostaOrigem));
-
-                // envia a resposta para o cliente
-                saida.write(respostaOrigem.getBytes("UTF-8"));
+                cache.put(idArquivo, new EntradaCache("arquivo" + idArquivo + ".ext"));
+                saida.write((respostaOrigem + "\n").getBytes(StandardCharsets.UTF_8));
             }
         } catch (IOException e) {
             System.out.println("Erro ao buscar na origem: " + e.getMessage());
-            saida.write("[ERROR] Servidor de Origem inacessível".getBytes("UTF-8"));
+            saida.write("[ERROR] Servidor de Origem inacessível\n".getBytes(StandardCharsets.UTF_8));
         } finally {
             // fecha a conexão com o servidor de origem
             try {

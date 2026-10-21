@@ -1,5 +1,6 @@
 Cliente -> Router
-LOCATE /arquivoXXXX.ext|<REGIÃO>
+LOCATE
+(opcional futuramente: LOCATE /arquivoXXXX.ext|<REGIÃO>)
 Router -> Cliente
 LOCATION /<ip:porta>
 
@@ -7,14 +8,17 @@ Cliente -> Edge
 GET /arquivoXXXX.ext
 Edge -> Cliente
 HIT /arquivoXXXX.ext
-MISS -> DATA /arquivoXXXX.ext
+ou MISS /arquivoXXXX.ext seguido de DATA /arquivoXXXX.ext
 
 Edge -> Origem
 GET /arquivoXXXX.ext
 
-Origem -> Edge
+Origem -> Edge (resposta ao GET)
 DATA /arquivoXXXX.ext
+Origem -> Edge (nova conexão)
 INVALIDATE /arquivoXXXX.ext
+Edge -> Origem
+INVALIDATED /arquivoXXXX.ext
 
 Erros gerais:
 [ERROR] <mensagem>
