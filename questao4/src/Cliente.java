@@ -168,31 +168,79 @@ public class Cliente {
         return sessao;
     }
 
+    // Handshake TCP independente da sessão UDP
+    private SessaoSegura iniciarSessao(InputStream entrada, OutputStream saida, ImplRSA rsa)
+            throws IOException, GeneralSecurityException {
+        String hello = "HELLO|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
+        saida.write(hello.getBytes(StandardCharsets.UTF_8));
+
+        byte[] buffer = new byte[4096];
+        int bytesLidos = entrada.read(buffer);
+        String mensagem = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        if (!mensagem.startsWith("PUBLIC_KEY|")) throw new IOException("Pública da Borda não recebida.");
+        byte[] chavePublicaBytes = Base64.getDecoder().decode(mensagem.substring("PUBLIC_KEY|".length()));
+        PublicKey publicaBorda = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(chavePublicaBytes));
+
+        KeyGenerator gerador = KeyGenerator.getInstance("AES");
+        gerador.init(256);
+        SecretKey chaveAES = gerador.generateKey();
+        byte[] chaveHMAC = new byte[32];
+        new SecureRandom().nextBytes(chaveHMAC);
+        String session = "SESSION|" + Base64.getEncoder().encodeToString(rsa.cifrar(chaveAES.getEncoded(), publicaBorda))
+                + "|" + Base64.getEncoder().encodeToString(rsa.cifrar(chaveHMAC, publicaBorda));
+        saida.write(session.getBytes(StandardCharsets.UTF_8));
+
+        buffer = new byte[4096];
+        bytesLidos = entrada.read(buffer);
+        String confirmacao = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        if (!confirmacao.startsWith("SESSION_OK|")) throw new IOException("Borda não confirmou a sessão.");
+        byte[] mac = ImplHMAC.gerarMAC(session.getBytes(StandardCharsets.UTF_8), chaveHMAC);
+        byte[] assinatura = Base64.getDecoder().decode(confirmacao.substring("SESSION_OK|".length()));
+        if (!rsa.verificarAssinatura(mac, assinatura, publicaBorda)) {
+            throw new SecurityException("HMAC/assinatura de SESSION_OK inválido.");
+        }
+        SessaoSegura sessao = new SessaoSegura(publicaBorda);
+        sessao.confirmar(chaveAES, chaveHMAC);
+        return sessao;
+    }
+
     private void buscarArquivo(String nomeArquivo) {
         Socket borda = null;
         try {
             borda = new Socket(ipBorda, portaBorda);
             InputStream entrada = borda.getInputStream();
             OutputStream saida = borda.getOutputStream();
+            ImplRSA rsa = new ImplRSA();
+            ImplAES256 aes = new ImplAES256();
+            SessaoSegura sessao = iniciarSessao(entrada, saida, rsa);
 
-            //handshake RSA/AES/HMAC com Borda antes do GET
-            byte[] pedido = ("GET /" + nomeArquivo).getBytes(StandardCharsets.UTF_8);
+            String pedido = EnvelopeSeguro.proteger("GET /" + nomeArquivo, aes,
+                    sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
+            saida.write(pedido.getBytes(StandardCharsets.UTF_8));
 
-            // GET cifrado com AES e HMAC assinado pela RSA do Cliente.
-            saida.write(pedido);
-
-            // resposta do servidor de borda
             byte[] buffer = new byte[4096];
-            String resposta = "";
             int bytesLidos = entrada.read(buffer);
-            while (bytesLidos != -1) {
-                resposta += new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+            if (bytesLidos == -1) throw new IOException("Borda encerrou conexão sem resposta.");
+            String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+            String resposta = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),
+                    sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+            System.out.println("HMAC da Borda validado.");
+
+            if (resposta.equals("MISS /" + nomeArquivo)) {
+                System.out.println(resposta);
                 bytesLidos = entrada.read(buffer);
+                if (bytesLidos == -1) throw new IOException("Borda não enviou DATA após MISS.");
+                envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                resposta = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(), sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+                System.out.println("HMAC da resposta final validado.");
+                if (!resposta.equals("DATA /" + nomeArquivo) && !resposta.startsWith("[ERROR]")) {
+                    throw new SecurityException("Resposta inválida da Borda.");
+                }
+            } else if (!resposta.equals("HIT /" + nomeArquivo) && !resposta.startsWith("[ERROR]")) {
+                throw new SecurityException("Resposta inválida da Borda.");
             }
-            // valida assinatura/HMAC e decifra HIT, MISS, DATA ou [ERROR]
-            // antes de interpretar/exibir; rejeitar resposta adulterada
-            System.out.println(resposta.trim()); 
-        } catch (IOException e) {
+            System.out.println(resposta);
+        } catch (IOException | GeneralSecurityException | RuntimeException e) {
             System.out.println("[ERROR] Falha no GET: " + e.getMessage());
         } finally {
             if (borda != null) {
