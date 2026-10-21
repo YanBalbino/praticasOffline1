@@ -1,5 +1,5 @@
 Cliente -> Router
-LOCATE /<Edge>
+LOCATE /arquivoXXXX.ext|<REGIÃO>
 Router -> Cliente
 LOCATION /<ip:porta>
 
