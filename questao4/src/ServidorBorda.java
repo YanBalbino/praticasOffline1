@@ -4,10 +4,12 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ServidorBorda {
     final private int PORTA_BORDA = 8003;
+    final private int PORTA_INVALIDACAO = 8103;
     final private int PORTA_ORIGEM = 8000;
     private static final long TTL_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(10); // 10 segundos de TTL
 
@@ -20,10 +22,10 @@ public class ServidorBorda {
         }
     }
 
-    private HashMap<String, EntradaCache> cache; // arquivos e instantes de entrada no cache
+    private ConcurrentHashMap<String, EntradaCache> cache; // compartilhado com o listener de invalidações
 
     public ServidorBorda(){
-        cache = new HashMap<>();
+        cache = new ConcurrentHashMap<>();
         rodar();
     }
 
@@ -33,6 +35,13 @@ public class ServidorBorda {
             servidorBorda = new ServerSocket(PORTA_BORDA);
 
             System.out.println("Servidor de borda rodando na porta " + PORTA_BORDA + "...");
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ouvirInvalidacoes();
+                }
+            }).start();
 
             // busca novas conexões
             while (true){
@@ -96,6 +105,61 @@ public class ServidorBorda {
                     servidorBorda.close();
                 } catch (Exception e) {
                     System.out.println("Erro ao fechar o servidor de borda: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    // Origem inicia uma conexão TCP e envia uma linha: INVALIDATE /arquivoN.ext
+    private void ouvirInvalidacoes() {
+        ServerSocket servidorInvalidacao = null;
+        try {
+            servidorInvalidacao = new ServerSocket(PORTA_INVALIDACAO);
+            System.out.println("Borda escutando invalidações na porta " + PORTA_INVALIDACAO + "...");
+            while (true) {
+                Socket origem = servidorInvalidacao.accept();
+                try {
+                    InputStream entrada = origem.getInputStream();
+                    OutputStream saida = origem.getOutputStream();
+
+                    byte[] buffer = new byte[4096];
+                    int bytesLidos = entrada.read(buffer);
+                    // se bytesLidos == -1, a conexão foi fechada pelo cliente, então tratamos como uma string vazia
+                    // se não, lemos a string normalment
+                    String comando = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+
+                    if (!comando.startsWith("INVALIDATE /")) {
+                        saida.write("[ERROR] Comando de invalidação inválido\n".getBytes(StandardCharsets.UTF_8));
+                        continue;
+                    }
+                    String nomeArquivo = comando.substring("INVALIDATE /".length());
+                    if (!nomeArquivo.matches("arquivo(?:[1-9]\\d{0,2}|1000)\\.ext")) {
+                        saida.write("[ERROR] Nome de arquivo inválido\n".getBytes(StandardCharsets.UTF_8));
+                        continue;
+                    }
+
+                    String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4);
+                    cache.remove(idArquivo);
+                    System.out.println("Cache invalidado: " + nomeArquivo);
+                    saida.write(("INVALIDATED /" + nomeArquivo + "\n").getBytes(StandardCharsets.UTF_8));
+                } catch (IOException e) {
+                    System.out.println("Erro ao receber invalidação: " + e.getMessage());
+                } finally {
+                    try {
+                        origem.close();
+                    } catch (IOException e) {
+                        System.out.println("Erro ao fechar conexão de invalidação: " + e.getMessage());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Erro no listener de invalidações: " + e.getMessage());
+        } finally {
+            if (servidorInvalidacao != null) {
+                try {
+                    servidorInvalidacao.close();
+                } catch (IOException e) {
+                    System.out.println("Erro ao fechar listener de invalidações: " + e.getMessage());
                 }
             }
         }
