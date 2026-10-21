@@ -18,13 +18,6 @@ import seguranca.CriptoUtils;
 import seguranca.SessaoSegura;
 import servidor.ServidorCalculadora;
 
-/**
- * Orquestrador automatizado dos Casos de Teste 1, 2 e 3.
- * Suporta execução em processos independentes do Sistema Operacional (via ProcessBuilder
- * ou executando ImplServidorDiretorio, ImplServidorS1..S3 e ImplCliente1..3 separadamente),
- * com fallback automático caso o ambiente restrinja fork/exec de subprocessos.
- * Valida toda a camada de criptografia híbrida (Handshake RSA + AES + HMAC + Assinatura Digital RSA).
- */
 public class SimuladorCasosTeste {
 
     private static final List<Process> PROCESSOS_ATIVOS = new ArrayList<Process>();

@@ -199,12 +199,9 @@ public class ServidorCalculadora {
                         respostaPlano = "ERRO_ENTRADA|Erro na entrada de dados. Tente outra vez!";
                     }
 
-                    String envelopeResposta;
+                    String envelopeResposta = sessao.empacotarMensagem(respostaPlano);
                     if (simularHmacCorrompido) {
-                        Color.alerta("[" + nome + "] Simulando envio de pacote na sessão com HMAC adulterado/corrompido...");
-                        envelopeResposta = sessao.empacotarMensagemComHmacCorrompido(respostaPlano);
-                    } else {
-                        envelopeResposta = sessao.empacotarMensagem(respostaPlano);
+                        envelopeResposta = simularAdulteracaoEmTransito(envelopeResposta);
                     }
                     escritor.println(envelopeResposta);
                 } else {
@@ -255,6 +252,22 @@ public class ServidorCalculadora {
 
     public void setSimularHmacCorrompido(boolean simularHmacCorrompido) {
         this.simularHmacCorrompido = simularHmacCorrompido;
+    }
+
+    /**
+     * Simula a corrupção/adulteração do pacote em trânsito na rede após o empacotamento legítimo.
+     * Como o payload cifrado é alterado depois que o envelope foi assinado, o HMAC recalculado
+     * pelo destinatário não baterá com o HMAC original assinado pelo emissor.
+     */
+    private String simularAdulteracaoEmTransito(String envelopeValido) {
+        String[] campos = envelopeValido.split("\\|");
+        if (campos.length == 7) {
+            campos[2] = campos[2] + "_ADULTERADO_EM_TRANSITO";
+            EnvelopeCriptografico.registrarLog("ALERTA", "[" + nome + " -> INTERFERÊNCIA NA REDE] "
+                    + "Pacote legítimo sofreu adulteração em trânsito (payload cifrado modificado após empacotamento)!");
+            return String.join("|", campos);
+        }
+        return envelopeValido;
     }
 
     public void pararServidor() {

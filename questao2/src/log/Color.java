@@ -2,7 +2,6 @@ package log;
 
 public class Color {
 
-    // Códigos de escape ANSI/ASCII para cores no terminal
     public static final String RESET = "\u001B[0m";
     public static final String NEGRITO = "\u001B[1m";
 
@@ -59,7 +58,6 @@ public class Color {
         System.out.flush();
     }
 
-    // Métodos auxiliares para formatar strings coloridas sem quebrar linha automaticamente
     public static String formatarErro(String mensagem) {
         return VERMELHO_BRILHANTE + mensagem + RESET;
     }

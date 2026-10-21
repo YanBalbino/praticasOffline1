@@ -163,17 +163,6 @@ public class SessaoSegura {
         );
     }
 
-    public String empacotarMensagemComHmacCorrompido(String mensagemPlano) {
-        return EnvelopeCriptografico.criarEnvelopeComHmacCorrompido(
-                mensagemPlano,
-                chaveSessaoAES,
-                chaveSessaoHMAC,
-                parChavesRSALocal,
-                chavePublicaRSARemota,
-                nomeLocal
-        );
-    }
-
     public EnvelopeCriptografico desempacotarEValidar(String pacoteRecebido) {
         return EnvelopeCriptografico.abrirEValidarEnvelope(
                 pacoteRecebido,
