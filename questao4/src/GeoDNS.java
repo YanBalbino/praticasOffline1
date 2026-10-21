@@ -16,9 +16,11 @@ import utils.EnvelopeSeguro;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 import utils.SessaoSegura;
 
 public class GeoDNS {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao4");
     private final int PORTA_GEODNS = 5354;
     private final Map<String, Integer> bordasPorRegiao = new HashMap<>();
     private final Map<InetSocketAddress, SessaoSegura> sessoes = new HashMap<>();
@@ -47,6 +49,7 @@ public class GeoDNS {
                     socket.receive(pedido);
                     InetSocketAddress origem = new InetSocketAddress(pedido.getAddress(), pedido.getPort());
                     String mensagem = new String(pedido.getData(), 0, pedido.getLength(), StandardCharsets.UTF_8);
+                    LOG.registrar("Cliente", "GeoDNS", "UDP RECEBIDO", mensagem);
 
                     if (mensagem.startsWith("HELLO|")) {
                         receberHello(mensagem, origem, socket);
@@ -56,20 +59,24 @@ public class GeoDNS {
                         SessaoSegura sessao = sessoes.get(origem);
                         if (sessao == null || !sessao.pronta()) {
                             System.out.println("Pacote descartado: cliente sem sessão: " + origem);
+                            LOG.registrar("Cliente", "GeoDNS", "PACOTE DESCARTADO", mensagem);
                             continue;
                         }
                         // HMAC e assinatura são validados antes da decifragem e do LOCATE.
                         String comando = EnvelopeSeguro.abrir(mensagem, aes, sessao.getChaveAES(),
                                 sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
                         System.out.println("HMAC validado de " + origem + ": " + comando);
+                        LOG.registrar("Cliente", "GeoDNS", "HMAC OK", comando);
                         String resposta = localizarBorda(comando);
                         String protegido = EnvelopeSeguro.proteger(resposta, aes, sessao.getChaveAES(),
                                 sessao.getChaveHMAC(), rsa);
                         byte[] dados = protegido.getBytes(StandardCharsets.UTF_8);
                         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+                        LOG.registrar("GeoDNS", "Cliente", "UDP ENVIO LOCATION", protegido);
                         System.out.println("Resposta segura enviada: " + resposta);
                     }
                 } catch (IOException | GeneralSecurityException | RuntimeException e) {
+                    LOG.registrar("Cliente", "GeoDNS", "FALHA PACOTE", e.getMessage());
                     System.out.println("Pacote rejeitado: " + e.getMessage());
                 }
             }
@@ -94,6 +101,7 @@ public class GeoDNS {
         String resposta = "PUBLIC_KEY|" + publicaGeoDNSBase64;
         byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        LOG.registrar("GeoDNS", "Cliente", "UDP ENVIO PUBLIC_KEY", resposta);
 
         System.out.println("HELLO recebido de " + origem);
     }
@@ -120,8 +128,10 @@ public class GeoDNS {
         String resposta = "SESSION_OK|" + macAssinadoBase64;
         byte[] dados = resposta.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, origem.getAddress(), origem.getPort()));
+        LOG.registrar("GeoDNS", "Cliente", "UDP ENVIO SESSION_OK", resposta);
         sessao.confirmar(chaveAES, bytesHMAC);
-        
+        LOG.registrar("Cliente", "GeoDNS", "SESSAO PRONTA", "Handshake AES/HMAC confirmado");
+
         System.out.println("Sessão AES/HMAC confirmada com " + origem);
     }
 

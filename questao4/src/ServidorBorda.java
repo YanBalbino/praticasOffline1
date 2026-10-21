@@ -18,9 +18,11 @@ import utils.EnvelopeSeguro;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 import utils.SessaoSegura;
 
 public class ServidorBorda {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao4");
     final private int PORTA_BORDA = 8003;
     final private int PORTA_INVALIDACAO = 8103;
     final private int PORTA_ORIGEM = 8000;
@@ -82,18 +84,21 @@ public class ServidorBorda {
 
                     if (bytesLidos > 0){
                         String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                        LOG.registrar("Cliente", "Borda", "TCP RECEBIDO GET", envelope);
                         // Autenticar antes de decifrar e acessar o cache; falha encerra conexão
                         String mensagemRecebida = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),
                                 sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
                         System.out.println("HMAC do Cliente validado.");
+                        LOG.registrar("Cliente", "Borda", "HMAC OK GET", mensagemRecebida);
                         if (!mensagemRecebida.startsWith("GET /")){
                             System.out.println("Mensagem inválida recebida: " + mensagemRecebida);
                             String resposta = EnvelopeSeguro.proteger("[ERROR] Mensagem inválida", aes,
                                     sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
                             saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+                            LOG.registrar("Borda", "Cliente", "TCP ENVIO ERRO", resposta);
                             continue;
                         }
-                        
+
                         System.out.println("Mensagem recebida do cliente: " + mensagemRecebida);
 
                         String nomeArquivo = mensagemRecebida.substring(5); // remove GET /
@@ -104,6 +109,7 @@ public class ServidorBorda {
                             String resposta = EnvelopeSeguro.proteger("[ERROR] Nome de arquivo inválido", aes,
                                     sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
                             saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+                            LOG.registrar("Borda", "Cliente", "TCP ENVIO ERRO", resposta);
                             continue;
                         }
                         String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4); // remove "arquivo" e ".ext"
@@ -112,6 +118,7 @@ public class ServidorBorda {
                         buscarNaCache(idArquivo, saida, sessao);
                     }
                 } catch (Exception e){
+                    LOG.registrar("Cliente", "Borda", "FALHA CONEXAO", e.getMessage());
                     System.out.println("Erro na conexão com o cliente: " + e.getMessage());
                 } finally {
                     // fecha a conexão com o cliente
@@ -141,6 +148,7 @@ public class ServidorBorda {
         byte[] buffer = new byte[4096];
         int bytesLidos = entrada.read(buffer);
         String hello = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar(nomeRemoto, "Borda", "TCP RECEBIDO HELLO", hello);
         String[] partes = hello.split("\\|", -1);
 
         if (partes.length != 2 || !"HELLO".equals(partes[0])) {
@@ -153,10 +161,12 @@ public class ServidorBorda {
         String publicaBordaBase64 = Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         String resposta = "PUBLIC_KEY|" + publicaBordaBase64;
         saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Borda", nomeRemoto, "TCP ENVIO PUBLIC_KEY", resposta);
 
         buffer = new byte[4096];
         bytesLidos = entrada.read(buffer);
         String session = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar(nomeRemoto, "Borda", "TCP RECEBIDO SESSION", session);
         partes = session.split("\\|", -1);
 
         if (partes.length != 3 || !"SESSION".equals(partes[0])){
@@ -175,7 +185,9 @@ public class ServidorBorda {
         String macAssinadoBase64 = Base64.getEncoder().encodeToString(rsa.assinar(mac));
         resposta = "SESSION_OK|" + macAssinadoBase64;
         saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Borda", nomeRemoto, "TCP ENVIO SESSION_OK", resposta);
         sessao.confirmar(chaveAES, bytesHMAC);
+        LOG.registrar(nomeRemoto, "Borda", "SESSAO PRONTA", "Handshake AES/HMAC confirmado");
         System.out.println("Sessão AES/HMAC confirmada com " + nomeRemoto + ".");
         return sessao;
     }
@@ -200,10 +212,12 @@ public class ServidorBorda {
                         continue;
                     }
                     String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                    LOG.registrar("Origem", "Borda", "TCP RECEBIDO INVALIDATE", envelope);
                     // Falha de autenticação encerra conexão antes de qualquer alteração no cache.
                     String comando = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),
                             sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
                     System.out.println("HMAC de INVALIDATE validado.");
+                    LOG.registrar("Origem", "Borda", "HMAC OK INVALIDATE", comando);
 
                     String resposta;
                     if (!comando.startsWith("INVALIDATE /")) {
@@ -215,6 +229,7 @@ public class ServidorBorda {
                         } else {
                             String idArquivo = nomeArquivo.substring(7, nomeArquivo.length() - 4);
                             cache.remove(idArquivo);
+                            LOG.registrar("Borda", "Cache", "INVALIDATE", nomeArquivo);
                             System.out.println("Cache invalidado: " + nomeArquivo);
                             resposta = "INVALIDATED /" + nomeArquivo;
                         }
@@ -222,7 +237,9 @@ public class ServidorBorda {
                     String protegido = EnvelopeSeguro.proteger(resposta, aes, sessao.getChaveAES(),
                             sessao.getChaveHMAC(), rsa);
                     saida.write(protegido.getBytes(StandardCharsets.UTF_8));
+                    LOG.registrar("Borda", "Origem", "TCP ENVIO INVALIDATED", protegido);
                 } catch (IOException | GeneralSecurityException | RuntimeException e) {
+                    LOG.registrar("Origem", "Borda", "FALHA INVALIDATE", e.getMessage());
                     System.out.println("Erro ao receber invalidação: " + e.getMessage());
                 } finally {
                     try {
@@ -251,20 +268,25 @@ public class ServidorBorda {
         if (entrada != null && System.nanoTime() - entrada.criadaEm >= TTL_NANOS) { // não é nulo e TTL expirou
             cache.remove(idArquivo);
             entrada = null;
+            LOG.registrar("Borda", "Cache", "TTL EXPIRADO", "arquivo" + idArquivo + ".ext");
             System.out.println("TTL expirado: arquivo" + idArquivo + ".ext");
         }
 
         if (entrada != null){
             System.out.println("Cache HIT!");
+            LOG.registrar("Borda", "Cache", "HIT", entrada.arquivo);
             String resposta = EnvelopeSeguro.proteger("HIT /" + entrada.arquivo, aes,
                     sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
             saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Borda", "Cliente", "TCP ENVIO HIT", resposta);
         } else {
             String nomeArquivo = "arquivo" + idArquivo + ".ext";
             System.out.println("MISS para o arquivo: " + nomeArquivo);
+            LOG.registrar("Borda", "Cache", "MISS", nomeArquivo);
             String resposta = EnvelopeSeguro.proteger("MISS /" + nomeArquivo, aes,
                     sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
             saida.write(resposta.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Borda", "Cliente", "TCP ENVIO MISS", resposta);
             buscarNaOrigem(idArquivo, saida, sessao);
         }
     }
@@ -275,10 +297,12 @@ public class ServidorBorda {
         String publicaBordaBase64 = Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         String hello = "HELLO|" + publicaBordaBase64;
         saida.write(hello.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Borda", "Origem", "TCP ENVIO HELLO", hello);
 
         byte[] buffer = new byte[4096];
         int bytesLidos = entrada.read(buffer);
         String mensagem = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar("Origem", "Borda", "TCP RECEBIDO PUBLIC_KEY", mensagem);
 
         if (!mensagem.startsWith("PUBLIC_KEY|")){
             throw new IOException("Pública da Origem não recebida.");
@@ -299,10 +323,12 @@ public class ServidorBorda {
                 rsa.cifrar(chaveHMAC, publicaOrigem));
         String session = "SESSION|" + chaveAESCifrada + "|" + chaveHMACCifrada;
         saida.write(session.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Borda", "Origem", "TCP ENVIO SESSION", session);
 
         buffer = new byte[4096];
         bytesLidos = entrada.read(buffer);
         String confirmacao = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar("Origem", "Borda", "TCP RECEBIDO SESSION_OK", confirmacao);
 
         if (!confirmacao.startsWith("SESSION_OK|")) {
             throw new IOException("Origem não confirmou a sessão.");
@@ -315,6 +341,7 @@ public class ServidorBorda {
         }
         SessaoSegura sessao = new SessaoSegura(publicaOrigem);
         sessao.confirmar(chaveAES, chaveHMAC);
+        LOG.registrar("Origem", "Borda", "HMAC OK SESSION", "Handshake AES/HMAC confirmado");
         System.out.println("Sessão AES/HMAC confirmada com Origem.");
         return sessao;
     }
@@ -331,20 +358,24 @@ public class ServidorBorda {
             String pedido = EnvelopeSeguro.proteger("GET /arquivo" + idArquivo + ".ext", aes,
                     sessaoOrigem.getChaveAES(), sessaoOrigem.getChaveHMAC(), rsa);
             saidaOrigem.write(pedido.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Borda", "Origem", "TCP ENVIO GET", pedido);
 
             byte[] buffer = new byte[4096];
             int bytesLidos = entradaOrigem.read(buffer);
             if (bytesLidos == -1) throw new IOException("Origem encerrou sem resposta.");
             String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+            LOG.registrar("Origem", "Borda", "TCP RECEBIDO DATA", envelope);
             // Verificar HMAC/assinatura antes de aceitar DATA ou alterar cache.
             String respostaOrigem = EnvelopeSeguro.abrir(envelope, aes, sessaoOrigem.getChaveAES(),
                     sessaoOrigem.getChaveHMAC(), rsa, sessaoOrigem.getPublicaRemota());
             System.out.println("HMAC da Origem validado.");
+            LOG.registrar("Origem", "Borda", "HMAC OK DATA", respostaOrigem);
             if (!respostaOrigem.equals("DATA /arquivo" + idArquivo + ".ext")) {
                 String erro = respostaOrigem.startsWith("[ERROR]") ? respostaOrigem : "[ERROR] Resposta inválida da origem";
                 String protegido = EnvelopeSeguro.proteger(erro, aes,
                         sessaoCliente.getChaveAES(), sessaoCliente.getChaveHMAC(), rsa);
                 saida.write(protegido.getBytes(StandardCharsets.UTF_8));
+                LOG.registrar("Borda", "Cliente", "TCP ENVIO ERRO", protegido);
                 return;
             }
 
@@ -352,11 +383,14 @@ public class ServidorBorda {
             String protegido = EnvelopeSeguro.proteger(respostaOrigem, aes,
                     sessaoCliente.getChaveAES(), sessaoCliente.getChaveHMAC(), rsa);
             saida.write(protegido.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Borda", "Cliente", "TCP ENVIO DATA", protegido);
         } catch (IOException | GeneralSecurityException | SecurityException e) {
             System.out.println("Erro ao buscar na origem: " + e.getMessage());
+            LOG.registrar("Origem", "Borda", "FALHA GET", e.getMessage());
             String protegido = EnvelopeSeguro.proteger("[ERROR] Comunicação segura com Origem falhou", aes,
                     sessaoCliente.getChaveAES(), sessaoCliente.getChaveHMAC(), rsa);
             saida.write(protegido.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Borda", "Cliente", "TCP ENVIO ERRO", protegido);
         } finally {
             if (servidorOrigem != null) {
                 try {

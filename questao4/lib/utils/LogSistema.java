@@ -7,6 +7,7 @@ import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -18,6 +19,22 @@ public class LogSistema {
 
     public LogSistema(Path arquivo) {
         this.arquivo = arquivo.toAbsolutePath().normalize();
+    }
+
+    // Encontra raiz a partir da pasta atual ou de seus ancestrais.
+    public static LogSistema noProjeto(String nomeProjeto) {
+
+        Path atual = Paths.get("").toAbsolutePath().normalize();
+        for (Path pasta = atual; pasta != null; pasta = pasta.getParent()) {
+            if (pasta.getFileName() != null && pasta.getFileName().toString().equals(nomeProjeto)) {
+                return new LogSistema(pasta.resolve("logs_canal_seguro.txt"));
+            }
+            Path filho = pasta.resolve(nomeProjeto);
+            if (Files.isDirectory(filho)) {
+                return new LogSistema(filho.resolve("logs_canal_seguro.txt"));
+            }
+        }
+        return new LogSistema(atual.resolve("logs_canal_seguro.txt"));
     }
 
     // Registrar só amostras de envelopes cifrados ou dados operacionais; nunca chaves privadas/AES/HMAC

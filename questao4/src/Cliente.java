@@ -19,9 +19,11 @@ import utils.EnvelopeSeguro;
 import utils.ImplAES256;
 import utils.ImplHMAC;
 import utils.ImplRSA;
+import utils.LogSistema;
 import utils.SessaoSegura;
 
 public class Cliente {
+    private static final LogSistema LOG = LogSistema.noProjeto("questao4");
     private final int PORTA_GEODNS = 5354;
     private String ipBorda;
     private int portaBorda;
@@ -79,12 +81,15 @@ public class Cliente {
             String protegido = EnvelopeSeguro.proteger("LOCATE", aes, sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
             byte[] dados = protegido.getBytes(StandardCharsets.UTF_8);
             socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
+            LOG.registrar("Cliente", "GeoDNS", "UDP ENVIO LOCATE", protegido);
 
             byte[] buffer = new byte[4096];
             DatagramPacket resposta = new DatagramPacket(buffer, buffer.length);
             socket.receive(resposta);
             String envelope = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+            LOG.registrar("GeoDNS", "Cliente", "UDP RECEBIDO", envelope);
             String mensagem = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(),sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+            LOG.registrar("GeoDNS", "Cliente", "HMAC OK LOCATION", mensagem);
             System.out.println("HMAC validado na resposta do GeoDNS.");
             if (!mensagem.startsWith("LOCATION /")) {
                 System.out.println(mensagem);
@@ -105,6 +110,7 @@ public class Cliente {
             portaBorda = porta;
             System.out.println("Borda localizada: " + ipBorda + ":" + portaBorda);
         } catch (IOException | GeneralSecurityException | RuntimeException e) {
+            LOG.registrar("Cliente", "GeoDNS", "FALHA LOCATE", e.getMessage());
             System.out.println("[ERROR] Falha no LOCATE: " + e.getMessage());
         } finally {
             if (socket != null) socket.close();
@@ -116,12 +122,14 @@ public class Cliente {
         String hello = "HELLO|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         byte[] dados = hello.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
+        LOG.registrar("Cliente", "GeoDNS", "UDP ENVIO HELLO", hello);
 
         byte[] buffer = new byte[4096];
         DatagramPacket resposta = new DatagramPacket(buffer, buffer.length);
         socket.receive(resposta);
 
         String mensagem = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("GeoDNS", "Cliente", "UDP RECEBIDO PUBLIC_KEY", mensagem);
         if (!mensagem.startsWith("PUBLIC_KEY|")){ 
             throw new IOException("Pública do GeoDNS não recebida."); 
         }
@@ -144,12 +152,14 @@ public class Cliente {
 
         dados = session.getBytes(StandardCharsets.UTF_8);
         socket.send(new DatagramPacket(dados, dados.length, destino, PORTA_GEODNS));
+        LOG.registrar("Cliente", "GeoDNS", "UDP ENVIO SESSION", session);
 
         // envia sessão e espera OK
         buffer = new byte[4096];
         resposta = new DatagramPacket(buffer, buffer.length);
         socket.receive(resposta);
         String confirmacao = new String(buffer, 0, resposta.getLength(), StandardCharsets.UTF_8);
+        LOG.registrar("GeoDNS", "Cliente", "UDP RECEBIDO SESSION_OK", confirmacao);
 
         if (!confirmacao.startsWith("SESSION_OK|")) {
             throw new IOException("GeoDNS não confirmou a sessão.");
@@ -164,6 +174,7 @@ public class Cliente {
         }
         SessaoSegura sessao = new SessaoSegura(publicaGeoDNS);
         sessao.confirmar(chaveAES, chaveHMAC);
+        LOG.registrar("GeoDNS", "Cliente", "HMAC OK SESSION", "Handshake UDP confirmado");
         return sessao;
     }
 
@@ -171,10 +182,12 @@ public class Cliente {
     private SessaoSegura iniciarSessao(InputStream entrada, OutputStream saida, ImplRSA rsa) throws IOException, GeneralSecurityException {
         String hello = "HELLO|" + Base64.getEncoder().encodeToString(rsa.getChavePublica().getEncoded());
         saida.write(hello.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Cliente", "Borda", "TCP ENVIO HELLO", hello);
 
         byte[] buffer = new byte[4096];
         int bytesLidos = entrada.read(buffer);
         String mensagem = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar("Borda", "Cliente", "TCP RECEBIDO PUBLIC_KEY", mensagem);
 
         if (!mensagem.startsWith("PUBLIC_KEY|")){
             throw new IOException("Pública da Borda não recebida.");
@@ -193,10 +206,12 @@ public class Cliente {
 
         String session = "SESSION|" + chaveAESCifrada + "|" + chaveHMACCifrada;
         saida.write(session.getBytes(StandardCharsets.UTF_8));
+        LOG.registrar("Cliente", "Borda", "TCP ENVIO SESSION", session);
 
         buffer = new byte[4096];
         bytesLidos = entrada.read(buffer);
         String confirmacao = bytesLidos == -1 ? "" : new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+        LOG.registrar("Borda", "Cliente", "TCP RECEBIDO SESSION_OK", confirmacao);
 
         if (!confirmacao.startsWith("SESSION_OK|")) {
             throw new IOException("Borda não confirmou a sessão.");
@@ -210,6 +225,7 @@ public class Cliente {
         }
         SessaoSegura sessao = new SessaoSegura(publicaBorda);
         sessao.confirmar(chaveAES, chaveHMAC);
+        LOG.registrar("Borda", "Cliente", "HMAC OK SESSION", "Handshake TCP confirmado");
         return sessao;
     }
 
@@ -226,6 +242,7 @@ public class Cliente {
             String pedido = EnvelopeSeguro.proteger("GET /" + nomeArquivo, aes,
                     sessao.getChaveAES(), sessao.getChaveHMAC(), rsa);
             saida.write(pedido.getBytes(StandardCharsets.UTF_8));
+            LOG.registrar("Cliente", "Borda", "TCP ENVIO GET", pedido);
 
             byte[] buffer = new byte[4096];
             int bytesLidos = entrada.read(buffer);
@@ -235,7 +252,9 @@ public class Cliente {
             }
 
             String envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+            LOG.registrar("Borda", "Cliente", "TCP RECEBIDO", envelope);
             String resposta = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(), sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+            LOG.registrar("Borda", "Cliente", "HMAC OK", resposta);
             System.out.println("HMAC da Borda validado.");
 
             if (resposta.equals("MISS /" + nomeArquivo)) {
@@ -247,7 +266,9 @@ public class Cliente {
                 }
 
                 envelope = new String(buffer, 0, bytesLidos, StandardCharsets.UTF_8);
+                LOG.registrar("Borda", "Cliente", "TCP RECEBIDO FINAL", envelope);
                 resposta = EnvelopeSeguro.abrir(envelope, aes, sessao.getChaveAES(), sessao.getChaveHMAC(), rsa, sessao.getPublicaRemota());
+                LOG.registrar("Borda", "Cliente", "HMAC OK FINAL", resposta);
                 System.out.println("HMAC da resposta final validado.");
 
                 if (!resposta.equals("DATA /" + nomeArquivo) && !resposta.startsWith("[ERROR]")) {
@@ -258,6 +279,7 @@ public class Cliente {
             }
             System.out.println(resposta);
         } catch (IOException | GeneralSecurityException | RuntimeException e) {
+            LOG.registrar("Cliente", "Borda", "FALHA GET", e.getMessage());
             System.out.println("[ERROR] Falha no GET: " + e.getMessage());
         } finally {
             if (borda != null) {
