@@ -1,0 +1,87 @@
+package utils;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import java.security.*;
+
+public class ImplRSA {
+
+    // mantidas para entidade poder guardar suas chaves pós geração
+    private PublicKey chavePublica;
+    private PrivateKey chavePrivada;
+
+    // OAEP para cifrar chaves com a pública; PKCS1Padding para a assinatura didática do HMAC.
+    private static final String PADDING = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    private static final String PADDING_HMAC = "RSA/ECB/PKCS1Padding";
+
+    public ImplRSA() throws NoSuchAlgorithmException {
+        gerarChaves();
+    }
+
+    public PublicKey getChavePublica() {
+        return chavePublica;
+    }
+
+    private void gerarChaves() throws NoSuchAlgorithmException {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        SecureRandom sr = new SecureRandom();
+
+        // Inicializa com 2048 bits
+        // (padrão mínimo recomendado atualmente)
+        kpg.initialize(2048, sr);
+        KeyPair kp = kpg.generateKeyPair();
+
+        chavePublica = kp.getPublic();
+        chavePrivada = kp.getPrivate();
+    }
+
+    public byte[] cifrar(byte[] msg, PublicKey chavePublica) throws NoSuchAlgorithmException,
+            NoSuchPaddingException,
+            InvalidKeyException,
+            IllegalBlockSizeException,
+            BadPaddingException {
+
+        Cipher cifrador = Cipher.getInstance(PADDING);
+        cifrador.init(Cipher.ENCRYPT_MODE, chavePublica);
+
+        byte[] bytesMsgCifrada = cifrador.doFinal(msg);
+
+        return bytesMsgCifrada;
+    }
+
+    public byte[] decifrar(byte[] msgCifrada) throws NoSuchAlgorithmException,
+            NoSuchPaddingException,
+            InvalidKeyException,
+            IllegalBlockSizeException,
+            BadPaddingException {
+
+        Cipher decifrador = Cipher.getInstance(PADDING);
+        decifrador.init(Cipher.DECRYPT_MODE, chavePrivada);
+
+        byte[] bytesMsgDecifrada = decifrador.doFinal(msgCifrada);
+
+        return bytesMsgDecifrada;
+    }
+
+    // cifra o HMAC com a chave privada do emissor
+    public byte[] assinar(byte[] mac) throws GeneralSecurityException {
+        Cipher cifrador = Cipher.getInstance(PADDING_HMAC);
+        cifrador.init(Cipher.ENCRYPT_MODE, chavePrivada);
+        return cifrador.doFinal(mac);
+    }
+
+    // Recupera o HMAC com a pública do emissor e compara com o HMAC recalculado.
+    public boolean verificarAssinatura(byte[] mac, byte[] assinaturaRecebida, PublicKey chavePublicaEmissor)
+            throws GeneralSecurityException {
+        Cipher decifrador = Cipher.getInstance(PADDING_HMAC);
+        decifrador.init(Cipher.DECRYPT_MODE, chavePublicaEmissor);
+        try {
+            byte[] macRecebido = decifrador.doFinal(assinaturaRecebida);
+            return MessageDigest.isEqual(mac, macRecebido);
+        } catch (BadPaddingException | IllegalBlockSizeException e) {
+            return false;
+        }
+    }
+}
