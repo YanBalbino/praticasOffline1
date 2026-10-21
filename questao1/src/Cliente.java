@@ -130,7 +130,7 @@ public class Cliente {
                         resposta = "QUIT";
                         break;
                     case "4":
-                        System.out.println("Qual o servidor? (GET com HMAC corrompido)");
+                        System.out.println("Qual o servidor?");
                         String nomeServidorHmacCorrompido = teclado.nextLine();
                         resposta = "GET|" + nomeServidorHmacCorrompido;
                         break;
@@ -270,13 +270,14 @@ public class Cliente {
         return conteudo + "|" + Base64.getEncoder().encodeToString(assinatura);
     }
 
+    // método personalizado pra simular erro de HMAC
     private String cifrarEAutenticarComHMACCorrompido(String mensagem, ImplAES256 aes,
             SecretKey chaveAES, byte[] chaveHMAC, ImplRSA rsa) throws GeneralSecurityException {
         byte[] cifrado = aes.cifrar(mensagem, chaveAES);
         String conteudo = "DATA|" + Base64.getEncoder().encodeToString(cifrado);
-        // Gera resumo deliberadamente errado. A assinatura continua válida para esse
-        // resumo, mas DNS calcula HMAC sobre conteudo e rejeita antes de decifrar.
+
         String textoHmacCorrompido = "Resumo HMAC corrompido";
+        
         byte[] mac = ImplHMAC.gerarMAC(
                 textoHmacCorrompido.getBytes(StandardCharsets.UTF_8), chaveHMAC);
         byte[] assinatura = rsa.assinar(mac);
@@ -296,7 +297,7 @@ public class Cliente {
         try {
             if (!rsa.verificarAssinatura(macEsperado, assinaturaRecebida, chavePublicaServidor)) return null;
         } catch (java.security.SignatureException e) {
-            return null; // Assinatura malformada também é pacote inválido, não fim da thread.
+            return null; // Assinatura malformada também é pacote inválido, não fim da thread
         }
         byte[] cifrado = Base64.getDecoder().decode(partes[1]);
         return new String(aes.decifrar(cifrado, chaveAES), StandardCharsets.UTF_8);
