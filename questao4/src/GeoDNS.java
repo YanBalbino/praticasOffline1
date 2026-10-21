@@ -10,9 +10,10 @@ public class GeoDNS {
     private final Map<String, Integer> bordasPorRegiao = new HashMap<>();
 
     public GeoDNS() {
+        // simula diferentes localizações com diferentes portas de borda
         bordasPorRegiao.put("NORTE", 8001);
         bordasPorRegiao.put("CENTRO", 8002);
-        bordasPorRegiao.put("SUL", 8003);
+        bordasPorRegiao.put("SUL", 8003); // na prática usaremos essa
         rodar();
     }
 
@@ -44,8 +45,9 @@ public class GeoDNS {
         }
     }
 
-    // LOCATE /arquivo20.ext|NORTE: arquivo desejado e localização fictícia do cliente.
+    // LOCATE descobre a borda atual; localização opcional fica disponível para testes futuros.
     private String localizarBorda(String mensagem) {
+        if ("LOCATE".equals(mensagem)) return "LOCATION /127.0.0.1:8003";
         if (!mensagem.startsWith("LOCATE /")) return "[ERROR] Comando inválido";
 
         String[] partes = mensagem.substring("LOCATE /".length()).split("\\|", -1);
